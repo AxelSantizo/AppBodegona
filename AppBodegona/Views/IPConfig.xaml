@@ -1,0 +1,99 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="AppBodegona.Views.IPConfig"
+             Title="Configuracion de Conexion"
+             BackgroundColor="#2B2B2B"
+             Shell.NavBarIsVisible="False">
+    <ContentPage.Content>
+        <StackLayout>
+            <StackLayout HorizontalOptions="CenterAndExpand" VerticalOptions="CenterAndExpand" IsVisible="False">
+                <Grid Margin="20">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="50"/>
+                    </Grid.RowDefinitions>
+                    <Entry x:Name="Server"
+                           FontSize="Body"
+                           Placeholder="Ingrese la IP a conectar!"
+                           PlaceholderColor="#FFF"
+                           TextColor="#FFF"
+                           IsPassword="True"
+                           IsReadOnly="True"
+                           Grid.Column="1"
+                           Grid.Row="0"/>
+
+                    <Entry x:Name="Port"
+                           Margin="0,10"
+                           FontSize="Body"
+                           Placeholder="Ingrese el puerto!"
+                           PlaceholderColor="#FFF"
+                           TextColor="#FFF"
+                           IsPassword="True"
+                           IsReadOnly="True"
+                           Grid.Column="1"
+                           Grid.Row="1"/>
+
+                    <Entry x:Name="Database"
+                           Margin="0,10"
+                           FontSize="Body"
+                           PlaceholderColor="#FFF"
+                           TextColor="#FFF"
+                           IsPassword="True"
+                           IsReadOnly="True"
+                           Grid.Column="1"
+                           Grid.Row="2"/>
+
+                    <Entry x:Name="User"
+                           Margin="0,10"
+                           FontSize="Body"
+                           Placeholder="Usuario"
+                           PlaceholderColor="#FFF"
+                           TextColor="#FFF"
+                           IsPassword="True"
+                           IsReadOnly="True"
+                           Grid.Column="1"
+                           Grid.Row="3"/>
+
+                    <Entry x:Name="Pass"
+                           Margin="0,10"
+                           FontSize="Body"
+                           Placeholder="Contraseña"
+                           PlaceholderColor="#FFF"
+                           IsPassword="True"
+                           IsReadOnly="True"
+                           TextColor="#FFF"
+                           Grid.Column="1"
+                           Grid.Row="4"/>
+                </Grid>
+            </StackLayout>
+
+            <StackLayout HorizontalOptions="CenterAndExpand" VerticalOptions="CenterAndExpand" Spacing="30" Padding="20">
+
+                <Label Text="Escanea el código QR para configurar la conexión"
+                       FontSize="Medium"
+                       TextColor="#FFFFFF"
+                       HorizontalTextAlignment="Center"
+                       />
+
+                <Button x:Name="ScanQR"
+                        FontFamily="fontello"
+                        Text="Escanear QR   &#xE807;"
+                        WidthRequest="150"
+                        Grid.ColumnSpan="2"
+                        Clicked="ScanQR_Clicked"
+                        Margin="0,10,0,0"/>
+
+                <Button x:Name="Back" 
+                        FontFamily="fontello"
+                        Text="Regresar   &#xE805;"
+                        WidthRequest="150"
+                        Grid.Column="0"
+                        Clicked="Back_Clicked"/>
+            </StackLayout>
+        </StackLayout>
+    </ContentPage.Content>
+</ContentPage>

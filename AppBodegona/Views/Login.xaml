@@ -1,0 +1,83 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="AppBodegona.Views.Login"
+             Title="Login"
+             BackgroundColor="#2B2B2B"
+             Shell.NavBarIsVisible="False">
+    <ContentPage.Content>
+
+        <StackLayout VerticalOptions="Center" HorizontalOptions="CenterAndExpand">
+            <Image Source="Login" HorizontalOptions="Center" WidthRequest="200" HeightRequest="200" />
+            <Entry x:Name="Usuario" 
+                   HorizontalOptions="Center"
+                   WidthRequest="300" 
+                   FontSize="Body"
+                   TextColor="#fff"
+                   PlaceholderColor="#FFF"
+                   Placeholder="Ingrese su usuario!"
+                   HorizontalTextAlignment="Center"
+                   Focused="Button_Focused"
+                   Completed="Usuario_Completed"/>
+
+            <Entry x:Name="Contraseña"
+                   HorizontalOptions="Center"
+                   WidthRequest="300" 
+                   TextColor="#fff"
+                   PlaceholderColor="#FFF"
+                   IsPassword="True"
+                   FontSize="Body"
+                   Placeholder="Ingrese su contrsaeña!"
+                   HorizontalTextAlignment="Center"
+                   HeightRequest="50"
+                   Focused="Button_Focused"
+                   Completed="Contraseña_Completed"/>
+
+            <Grid Margin="20,0,20,0" ColumnSpacing="10">
+                <Frame HasShadow="False"
+                       BackgroundColor="#DF3068"
+                       Padding="10"
+                       CornerRadius="8"
+                       Grid.Column="0">
+                    <StackLayout Orientation="Horizontal"
+                                 HorizontalOptions="Center"
+                                 VerticalOptions="Center">
+                        <Label Text="Cancelar "
+                               FontSize="16"
+                               TextColor="White"
+                               VerticalTextAlignment="Center"/>
+                        <Label Text="&#xe14a;" 
+                               FontFamily="MaterialIcons-Regular"
+                               FontSize="25"
+                               TextColor="White"/>
+                    </StackLayout>
+                    <Frame.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="Cancelar_Clicked"/>
+                    </Frame.GestureRecognizers>
+                </Frame>
+
+                <Frame HasShadow="False"
+                       BackgroundColor="#00A6BD"
+                       Padding="10"
+                       CornerRadius="8"
+                       Grid.Column="1">
+                    <StackLayout Orientation="Horizontal"
+                                 HorizontalOptions="Center"
+                                 VerticalOptions="Center">
+                        <Label Text="Ingresar"
+                               FontSize="16"
+                               TextColor="White"
+                               VerticalTextAlignment="Center"/>
+                        <Label Text="&#xea77;" 
+                               FontFamily="MaterialIcons-Regular"
+                               FontSize="25"
+                               TextColor="White"/>
+                    </StackLayout>
+                    <Frame.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnIngresarClicked"/>
+                    </Frame.GestureRecognizers>
+                </Frame>
+            </Grid>
+        </StackLayout>
+    </ContentPage.Content>
+</ContentPage>

@@ -1,0 +1,336 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="AppBodegona.Views.Existencia"
+             Title="Consulta de Existencias"
+             BackgroundColor="#2B2B2B">
+
+    <ContentPage.Content>
+
+        <StackLayout>
+            <StackLayout x:Name="VistaBuscar" IsVisible="true">
+                <StackLayout Orientation="Horizontal" HorizontalOptions="CenterAndExpand" Margin="0, 10">
+                    <Entry x:Name="edescripcion"
+                           Placeholder="Ingrese la descripción"
+                           TextColor="#fff"
+                           PlaceholderColor="#FFF"
+                           IsVisible="true"
+                           Completed="Buscar_Clicked"
+                           WidthRequest="200"
+                           HorizontalOptions="CenterAndExpand"
+                           Focused="Button_Focused"
+                           FontSize="Body"
+                           TextChanged="Reset_TextChanged"/>
+
+                    <Entry x:Name="eupc"
+                           Placeholder="UPC (Barra Producto)"
+                           Keyboard="Numeric"
+                           IsVisible="false"
+                           PlaceholderColor="#FFF"
+                           TextColor="#fff"
+                           Completed="Buscar_Clicked"
+                           WidthRequest="200"
+                           FontSize="Body"
+                           HorizontalOptions="Start"
+                           Focused="Button_Focused"
+                           TextChanged="Reset_TextChanged"
+                           MaxLength="14"/>
+
+                    <Button x:Name="Cambio"
+                            FontFamily="MaterialIcons-Regular"
+                            Text="&#xea37;"
+                            WidthRequest="45"
+                            TextColor="#FFF"
+                            FontSize="Title"
+                            CornerRadius="8"
+                            BackgroundColor="#00A6BD"
+                            Clicked="Cambio_Clicked"
+                            HorizontalOptions="End"/>
+
+                    <Button FontFamily="MaterialIcons-Regular"
+                            Text="&#xe412;"
+                            TextColor="#FFF"
+                            BackgroundColor="#00A6BD"
+                            WidthRequest="45"
+                            HeightRequest="50"
+                            CornerRadius="8"
+                            FontSize="Title"
+                            HorizontalOptions="Center" 
+                            Clicked="EscanearUPC_Clicled"/>
+
+                    <Button FontFamily="MaterialIcons-Regular"
+                            CornerRadius="8"
+                            Text="&#xe872;"
+                            WidthRequest="40"
+                            TextColor="#FFF"
+                            BackgroundColor="#DF3068"
+                            FontSize="Large"
+                            Clicked="Button_Clicked_2"  
+                            HorizontalOptions="End"/>
+                </StackLayout>
+
+                <BoxView HeightRequest="1" Color="#fff" HorizontalOptions="FillAndExpand" Margin="0,0,0,0"/>
+
+                <StackLayout Orientation="Horizontal" Padding="5,0">
+                    <Label Text="UPC" 
+                           TextColor="#fff"
+                           FontSize="Caption"
+                           VerticalTextAlignment="Center"
+                           WidthRequest="100"/>
+
+                    <Label Text="Descripción" 
+                           VerticalTextAlignment="Center"
+                           FontSize="Caption"
+                           TextColor="#fff"
+                           WidthRequest="150"/>
+
+                    <Label Text="Existencia" 
+                           VerticalTextAlignment="Center"
+                           HorizontalTextAlignment="Center"
+                           FontSize="Caption"
+                           TextColor="#fff"
+                           WidthRequest="80"/>
+
+                    <Label Text="Precio" 
+                           VerticalTextAlignment="Center"
+                           HorizontalTextAlignment="Center"
+                           FontSize="Caption"
+                           TextColor="#fff"
+                           WidthRequest="50"/>
+                </StackLayout>
+
+                <BoxView HeightRequest="1" Color="#fff" HorizontalOptions="FillAndExpand" Margin="0,0,0,0"/>
+
+                <ListView x:Name="ResultadosListView" HasUnevenRows="True" IsVisible="false" ItemSelected="ListView_ItemSelectedFalse">
+                    <ListView.ItemTemplate>
+                        <DataTemplate>
+                            <ViewCell>
+                                <StackLayout>
+                                    <StackLayout Orientation="Horizontal" Padding="5,0">
+                                        <Label Text="{Binding Upc}" 
+                                               VerticalTextAlignment="Center"
+                                               TextColor="#fff"
+                                               FontSize="Caption"
+                                               WidthRequest="110"/>
+
+                                        <Label Text="{Binding DescLarga}" 
+                                               VerticalTextAlignment="Center"
+                                               TextColor="#fff"
+                                               FontSize="Caption"
+                                               WidthRequest="150"/>
+
+                                        <Label Text="{Binding Existencia}" 
+                                               VerticalTextAlignment="Center"
+                                               HorizontalTextAlignment="Center" 
+                                               TextColor="#fff"
+                                               FontSize="Caption"
+                                               WidthRequest="70"/>
+
+                                        <Button FontFamily="MaterialIcons-Regular"
+                                                Text="&#xe8f4;"
+                                                FontSize="Small"
+                                                Clicked="VerProducto_Clicked"
+                                                HeightRequest="35"
+                                                CornerRadius="8"
+                                                BackgroundColor="#00A6BD"
+                                                TextColor="#FFF"
+                                                HorizontalOptions="Center" 
+                                                VerticalOptions="Center" 
+                                                WidthRequest="45"/>
+                                    </StackLayout>
+                                    <BoxView x:Name="Division" HeightRequest="1" Color="#fff" HorizontalOptions="FillAndExpand" Margin="0,0,0,0"/>
+                                </StackLayout>
+                            </ViewCell>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+            </StackLayout>
+
+            <Image x:Name="Img" HorizontalOptions="CenterAndExpand"  VerticalOptions="CenterAndExpand" Margin="0,150"/>
+
+
+
+            <StackLayout x:Name="Contenedor" IsVisible="false">
+                <Grid>
+                    <Image x:Name="Img1"  Aspect="AspectFill" HorizontalOptions="FillAndExpand" VerticalOptions="CenterAndExpand" />
+                </Grid>
+
+                <StackLayout Margin="0,20">
+
+                    <Label x:Name="Oferta"
+                            VerticalOptions="Start"
+                            HorizontalOptions="Center"
+                            FontAttributes="Bold"
+                            TextColor="#fff" />
+
+                    <Label x:Name="Nivel"
+                            Margin="20, -20"
+                            TextColor="#fff" 
+                            FontSize="40" 
+                            FontAttributes="Bold" 
+                            VerticalTextAlignment="Start"
+                            Grid.Column="0"/>
+
+                    <Label x:Name="Precio"
+                            TextColor="#fff" 
+                            FontSize="90" 
+                            FontAttributes="Bold" 
+                            VerticalTextAlignment="Center" 
+                            HorizontalOptions="Center" 
+                            Grid.Column="1"/>
+
+                    <Label x:Name="Descripcion" 
+                            Margin="20, -5"
+                            TextColor="#fff"
+                            HorizontalTextAlignment="Center"
+                            VerticalOptions="Center" 
+                            HorizontalOptions="Center"
+                            FontSize="15"
+                            FontAttributes="Bold"/>
+
+                    <Grid Margin="20">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Label x:Name="PNormal"
+                               TextColor="#FFF"
+                               FontSize="10"
+                               FontAttributes="Bold"
+                               VerticalTextAlignment="Center"
+                               HorizontalOptions="Start"
+                               Grid.Column="0" />
+
+                        <Label x:Name="MNormal"
+                               TextColor="#FFF"
+                               FontSize="10"
+                               FontAttributes="Bold"
+                               VerticalTextAlignment="Center"
+                               HorizontalOptions="Start"
+                               Grid.Column="1"/>
+
+                        <Label x:Name="Exis"
+                               TextColor="#FFF"
+                               FontSize="10"
+                               FontAttributes="Bold"
+                               VerticalTextAlignment="Center"
+                               HorizontalOptions="End"
+                               Grid.Column="2" />
+
+                        <Label x:Name="PNivel"
+                               TextColor="#FFF"
+                               FontSize="10"
+                               FontAttributes="Bold"
+                               VerticalTextAlignment="Center"
+                               HorizontalOptions="Start"
+                               Grid.Column="0" 
+                               Grid.Row="1"/>
+
+                        <Label x:Name="MNivel1"
+                               TextColor="#FFF"
+                               FontSize="10"
+                               FontAttributes="Bold"
+                               VerticalTextAlignment="Center"
+                               HorizontalOptions="Start"
+                               Grid.Row="1"
+                               Grid.Column="1"/>
+
+                        <Label x:Name="PNivel1"
+                               TextColor="#FFF"
+                               FontSize="10"
+                               FontAttributes="Bold"
+                               VerticalTextAlignment="Center"
+                               HorizontalOptions="Start"
+                               Grid.Column="0" 
+                               Grid.Row="2"/>
+
+                        <Label x:Name="MNivel2"
+                               TextColor="#FFF"
+                               FontSize="10"
+                               FontAttributes="Bold"
+                               VerticalTextAlignment="Center"
+                               HorizontalOptions="Start"
+                               Grid.Row="2"
+                               Grid.Column="1"/>
+                    </Grid>
+                </StackLayout>
+
+                <Label x:Name="Familia" IsVisible="false"/>
+
+                <StackLayout x:Name="VF">
+                    <Grid Margin="20,0,20,0">
+                        <Frame HasShadow="False"
+                               BackgroundColor="#DF3068"
+                               Padding="10"
+                               CornerRadius="8"
+                               Grid.Column="0">
+                            <StackLayout Orientation="Horizontal"
+                                         HorizontalOptions="Center"
+                                         VerticalOptions="Center">
+                                <Label Text="Regresar"
+                                       FontSize="14"
+                                       TextColor="White"
+                                       VerticalTextAlignment="Center"/>
+                                <Label Text="&#xe15e;" 
+                                       FontFamily="MaterialIcons-Regular"
+                                       FontSize="30"
+                                       TextColor="White"/>
+                            </StackLayout>
+                            <Frame.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="Regresar_Clicked"/>
+                            </Frame.GestureRecognizers>
+                        </Frame>
+
+                        <Frame HasShadow="False"
+                               BackgroundColor="#00A6BD"
+                               Padding="10"
+                               CornerRadius="8"
+                               Grid.Column="1">
+                            <StackLayout Orientation="Horizontal"
+                                         HorizontalOptions="Center"
+                                         VerticalOptions="Center">
+                                <Label Text="Ver Familia"
+                                       FontSize="14"
+                                       TextColor="White"
+                                       VerticalTextAlignment="Center"/>
+                                <Label Text="&#xe8f4;" 
+                                       FontFamily="MaterialIcons-Regular"
+                                       FontSize="25"
+                                       TextColor="White"/>
+                            </StackLayout>
+                            <Frame.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="VF_Clicked"/>
+                            </Frame.GestureRecognizers>
+                        </Frame>
+                    </Grid>
+                </StackLayout>
+
+                <Frame x:Name="Regresar"
+                       HasShadow="False" 
+                       BackgroundColor="#DF3068"
+                       Padding="10"
+                       CornerRadius="8"
+                       Grid.Column="0"
+                       Margin="20,0,20,0" >
+                    <StackLayout Orientation="Horizontal"
+                                 HorizontalOptions="Center"
+                                 VerticalOptions="Center"
+                                 Spacing="10">
+                        <Label Text="Regresar"
+                               FontSize="16"
+                               TextColor="White"
+                               VerticalTextAlignment="Center"/>
+                        <Label Text="&#xe15e;" 
+                               FontFamily="MaterialIcons-Regular"
+                               FontSize="30"
+                               TextColor="White"/>
+                    </StackLayout>
+                    <Frame.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="Regresar_Clicked"/>
+                    </Frame.GestureRecognizers>
+                </Frame>
+            </StackLayout>
+        </StackLayout>
+    </ContentPage.Content>
+</ContentPage>

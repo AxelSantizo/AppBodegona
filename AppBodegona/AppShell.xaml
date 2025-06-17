@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Shell xmlns="http://xamarin.com/schemas/2014/forms" 
+       xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+       xmlns:local="clr-namespace:AppBodegona.Views"
+       Title="AppBodegona"
+       x:Class="AppBodegona.AppShell"
+       >
+
+    <Shell.Resources>
+        <ResourceDictionary>
+
+            <Style x:Key="BaseStyle" TargetType="Element">
+                <Setter Property="Shell.BackgroundColor" Value="#00A6BD" />
+                <Setter Property="Shell.ForegroundColor" Value="#FFFF" />
+                <Setter Property="Shell.TitleColor" Value="#FFFF" />
+                <Setter Property="Shell.DisabledColor" Value="#B4FFFFFF" />
+                <Setter Property="Shell.UnselectedColor" Value="#95FFFFFF" />
+                <Setter Property="Shell.TabBarBackgroundColor" Value="{StaticResource Primary}" />
+                <Setter Property="Shell.TabBarForegroundColor" Value="#3AADA9"/>
+                <Setter Property="Shell.TabBarUnselectedColor" Value="#95FFFFFF"/>
+                <Setter Property="Shell.TabBarTitleColor" Value="Black"/>
+            </Style>
+            <Style TargetType="TabBar" BasedOn="{StaticResource BaseStyle}" />
+            <Style TargetType="FlyoutItem" BasedOn="{StaticResource BaseStyle}" />
+
+            <Style Class="FlyoutItemLabelStyle" TargetType="Label">
+                <Setter Property="TextColor" Value="White"></Setter>
+            </Style>
+            <Style Class="FlyoutItemLayoutStyle" TargetType="Layout" ApplyToDerivedTypes="True">
+                <Setter Property="VisualStateManager.VisualStateGroups">
+                    <VisualStateGroupList>
+                        <VisualStateGroup x:Name="CommonStates">
+                            <VisualState x:Name="Normal">
+                                <VisualState.Setters>
+                                    <Setter Property="BackgroundColor" Value="{x:OnPlatform UWP=Transparent, iOS=White}" />
+                                    <Setter TargetName="FlyoutItemLabel" Property="Label.TextColor" Value="#3AADA9"/>
+                                </VisualState.Setters>
+                            </VisualState>
+                            <VisualState x:Name="Selected">
+                                <VisualState.Setters>
+                                    <Setter Property="BackgroundColor" Value="#3AADA9" />
+                                </VisualState.Setters>
+                            </VisualState>
+                        </VisualStateGroup>
+                    </VisualStateGroupList>
+                </Setter>
+            </Style>
+
+            <Style Class="MenuItemLayoutStyle" TargetType="Layout" ApplyToDerivedTypes="True">
+                <Setter Property="VisualStateManager.VisualStateGroups">
+                    <VisualStateGroupList>
+                        <VisualStateGroup x:Name="CommonStates">
+                            <VisualState x:Name="Normal">
+                                <VisualState.Setters>
+                                    <Setter TargetName="FlyoutItemLabel" Property="Label.TextColor" Value="Black" />
+                                </VisualState.Setters>
+                            </VisualState>
+                        </VisualStateGroup>
+                    </VisualStateGroupList>
+                </Setter>
+            </Style>
+        </ResourceDictionary>
+    </Shell.Resources>
+
+    <Shell.FlyoutHeader>
+        <StackLayout x:Name="VistaLogin" BackgroundColor="#00A6BD">
+            
+            <Frame HasShadow="False"
+                   BackgroundColor="#00A6BD"
+                   Padding="10"
+                   CornerRadius="8"
+                   IsVisible="{Binding IsNotLoggedIn}">
+                <StackLayout Orientation="Horizontal"
+                         HorizontalOptions="Center"
+                         VerticalOptions="Center"
+                         Spacing="10">
+                    <Label Text="Iniciar Sesión"
+                               FontSize="16"
+                               TextColor="White"
+                               VerticalTextAlignment="Center"/>
+                    <Label Text="&#xea77;" 
+                               FontFamily="MaterialIcons-Regular"
+                               FontSize="25"
+                               TextColor="White"/>
+                    </StackLayout>
+                <Frame.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="Button_Clicked_1"/>
+                </Frame.GestureRecognizers>
+            </Frame>
+
+
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="250" />
+                    <ColumnDefinition Width="auto" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <Label Text="{Binding Id}" IsVisible="false" />
+
+                <Label FontFamily="fontello1"
+                       Text="{Binding Usuario}" 
+                       TextColor="#fff" 
+                       FontSize="Body" 
+                       FontAttributes="Bold" 
+                       VerticalOptions="Center" 
+                       Grid.Column="0" 
+                       Margin="20,-10"/>
+
+                <Button FontFamily="fontello"
+                        Text="&#xE805;" 
+                        Grid.Column="1"
+                        FontSize="Medium"
+                        IsVisible="{Binding IsLoggedIn}"
+                        Clicked="Button_Clicked"
+                        BackgroundColor="#00A6BD"/>
+            </Grid>
+        </StackLayout>
+    </Shell.FlyoutHeader>
+
+    <FlyoutItem x:Name="ExistenciaItem" Title="Consulta de Existencias" Icon="icon_inventario.png">
+        <ShellContent Route="Existencia" ContentTemplate="{DataTemplate local:Existencia}" />
+    </FlyoutItem>
+    
+    <FlyoutItem x:Name="FechasCortasItem" Title="Reporte de Fechas Cortas" Icon="icon_report.png">
+        <ShellContent Route="FechasCortas" ContentTemplate="{DataTemplate local:FechasCortas}" />
+    </FlyoutItem>
+
+
+    <FlyoutItem x:Name="PrecioItem" Title="Modificacion de Precio" Icon="icon_cambio.png">
+        <ShellContent Route="Precio" ContentTemplate="{DataTemplate local:Precio}" />
+    </FlyoutItem>
+
+    <FlyoutItem x:Name="FamiliaItem" Title="Modificacion de Familias" Icon="icon_editar.png">
+        <ShellContent Route="Familias" ContentTemplate="{DataTemplate local:Familias}" />
+    </FlyoutItem>
+
+    <!-- 
+    <FlyoutItem x:Name="RecepcionItem" Title="Recepcion de Mercaderia" Icon="icon_recepcion.png">
+        <ShellContent Route="Recepcion" ContentTemplate="{DataTemplate local:Recepcion}" />
+    </FlyoutItem>
+     -->
+
+    <!-- Footer con el logo -->
+    <Shell.FlyoutFooter>
+        <StackLayout BackgroundColor="#00A6BD" Padding="10" HorizontalOptions="Center">
+            <Image Source="Santizo" 
+                   Background="#FFF"
+                   HeightRequest="70" 
+                   WidthRequest="70" 
+                   Aspect="AspectFit" />
+        </StackLayout>
+    </Shell.FlyoutFooter>
+</Shell>
