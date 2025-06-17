@@ -48,6 +48,7 @@ Módulo para registrar y controlar la recepción de mercancía.
 
 ## Estructura del proyecto
 
+```
 AppBodegona/
 ├── AppBodegona/                # Proyecto principal (.NET Standard 2.0)
 │   ├── Views/                  # Vistas y code-behind de cada módulo
@@ -80,7 +81,7 @@ AppBodegona/
 ├── README.md                   # Documentación del proyecto
 ├── AppBodegona.sln             # Solución de Visual Studio
 └── ...                         # Otros archivos de configuración
-
+```
 
 ## Dependencias principales
 
