@@ -22,9 +22,12 @@ namespace AppBodegona.Views
     public partial class FechasCortas : ContentPage
     {
         private List<DetalleScann> detalle = new List<DetalleScann>();
-        public ObservableCollection<Producto> Productos { get; set; }
+        public ObservableCollection<Producto> Productos { get; set; }public static bool NavegacionInterna { get; set; } = false;
+
         
         private bool regresandoDeScanner = false;
+        private bool popupMostrado = false;
+
 
         public FechasCortas()
         {
@@ -75,6 +78,7 @@ namespace AppBodegona.Views
         {
             public string UPC { get; set; }
             public string Descripcion { get; set; }
+            public double Cantidad { get; set; }
             public double Existencia { get; set; }
             public double Costo { get; set; }
             public double SubCosto { get; set; }
@@ -89,15 +93,11 @@ namespace AppBodegona.Views
             public string Encargado { get; set; }
         }
 
-
-
         private void VerificarConexiones()
         {
             var conexiones = new Dictionary<string, string>
             {
                 { "Sucursal", DatabaseConnection.ConnectionString },
-                { "Central", DatabaseConnection.ConnectionCentral },
-                { "Nexus", DatabaseConnection.ConnectionNexus }
             };
 
             foreach (var conexion in conexiones)
@@ -166,42 +166,60 @@ namespace AppBodegona.Views
                 return;
             }
 
-
-            if (string.IsNullOrEmpty(appShell.Usuario))
+            if (regresandoDeScanner)
             {
-                var tcs = new TaskCompletionSource<bool>();
+                popupMostrado = false;
+                return;
+            }
 
-                Nombre.Text = string.Empty;
+            if (string.IsNullOrWhiteSpace(appShell.Usuario))
+            {
+                if (string.IsNullOrWhiteSpace(Nombre.Text))
+                {
+                    var tcs = new TaskCompletionSource<bool>();
 
-                var popup = new DynamicPopup(
-                    "Advertencia",
-                    "¿Tiene usuario para continuar?",
-                    new Dictionary<string, Action>
-                    {
+                    Nombre.Text = string.Empty;
+                    viewReporteNiv1.IsVisible = false;
+                    viewReporteNiv5.IsVisible = false;
+
+                    var popup = new DynamicPopup(
+                        "Advertencia",
+                        "¿Tiene usuario para continuar?",
+                        new Dictionary<string, Action>
+                        {
                         { "Si", () => tcs.SetResult(true) },
                         { "No", () => tcs.SetResult(false) }
-                    });
+                        });
 
-                await PopupNavigation.Instance.PushAsync(popup);
-                bool loginistrue = await tcs.Task;
+                    await PopupNavigation.Instance.PushAsync(popup);
+                    bool loginistrue = await tcs.Task;
 
-                if (!loginistrue)
-                {
-                    viewReporteNiv5.IsVisible = false;
-                    viewReporteNiv1.IsVisible = true;
-                    viewNombreUsuario.IsVisible = true;
-                    Nombre.Text = null;
-                    Nombre.IsReadOnly = false;
+                    if (!loginistrue)
+                    {
+                        popupMostrado = true;
 
-                }
-                else
-                {
-                    NavigationService.DestinationPage = "FechasCortas";
-                    await Shell.Current.GoToAsync("Login");
+                        viewReporteNiv5.IsVisible = false;
+                        viewReporteNiv1.IsVisible = true;
+
+                        viewNombreUsuario.IsVisible = true;
+                        viewUPCScann.IsVisible = true;
+                        viewIngreso.IsVisible = true;
+                        viewSearchProducto.IsVisible = false;
+                        Cancelar.IsVisible = false;
+
+                        Nombre.IsReadOnly = false;
+                        Nombre.Focus();
+                    }
+                    else
+                    {
+                        NavigationService.DestinationPage = "FechasCortas";
+                        await Shell.Current.GoToAsync("Login");
+                    }
                 }
             }
             else
             {
+                Nombre.Text = null;
                 if (appShell.IdNivel != "5" && appShell.IdNivel != "11")
                 {
                     viewReporteNiv5.IsVisible = false;
@@ -212,7 +230,6 @@ namespace AppBodegona.Views
                 }
                 else
                 {
-
                     Device.BeginInvokeOnMainThread(async () =>
                     {
                         viewReporteNiv1.IsVisible = false;
@@ -221,10 +238,8 @@ namespace AppBodegona.Views
 
                     await Task.Delay(300);
 
-                    FechaReporte.Date = DateTime.Now; 
-
-                    CargarEncargados(FechaReporte.Date);
-                    CargarReporte(DateTime.Now);
+                    FechaInicio.Date = DateTime.Now;
+                    FechaFin.Date = DateTime.Now;
                 }
             }
         }
@@ -249,10 +264,11 @@ namespace AppBodegona.Views
                 NombreUsuario = appShell.Usuario;
                 Usuario = appShell.NombreUsuario;
 
-                idSucursal = Preferences.Get("IDSUCURSALGLOBAL", 0); 
-                nombreSucursal = Preferences.Get("NOMBRESUCURSALGLOBAL", "Desconocido"); 
+                idSucursal = Preferences.Get("ID_Sucursal", 0);
+                nombreSucursal = Preferences.Get("NombreSucursal", "Desconocido");
             }
         }
+
 
         private void UPCScann_TextChanged(object sender, TextChangedEventArgs e)
         {
@@ -277,16 +293,18 @@ namespace AppBodegona.Views
             var entry = sender as Entry;
             var texto = entry.Text;
 
+            // Si no tiene 13 dígitos, se rellenan con ceros a la izquierda
             if (!string.IsNullOrEmpty(texto) && texto.Length < 13)
             {
                 entry.Text = texto.PadLeft(13, '0');
             }
 
-            if (int.TryParse(entry.Text, out int codigoUPC))
+            if (!string.IsNullOrWhiteSpace(entry.Text))
             {
-                ObtenerDescripcionProducto(codigoUPC);
+                ObtenerDescripcionProducto(entry.Text);
             }
         }
+
 
         private async void EscanearUPC_Clicled(object sender, EventArgs e)
         {
@@ -320,10 +338,13 @@ namespace AppBodegona.Views
 
                     regresandoDeScanner = true;
 
-                    if (int.TryParse(result.Text, out int codigoUPC))
+                    if (!string.IsNullOrWhiteSpace(result.Text))
                     {
-                        ObtenerDescripcionProducto(codigoUPC);
+                        string upc = result.Text.PadLeft(13, '0');
+
+                        ObtenerDescripcionProducto(upc);
                     }
+
                 }
                 else
                 {
@@ -354,7 +375,7 @@ namespace AppBodegona.Views
             }
         }
 
-        private void ObtenerDescripcionProducto(int upc)
+        private void ObtenerDescripcionProducto(string upc)
         {
             try
             {
@@ -366,6 +387,7 @@ namespace AppBodegona.Views
 
                     using (var command = new MySqlCommand(query, connection))
                     {
+                        // 🔹 Ahora siempre enviamos como string
                         command.Parameters.AddWithValue("@UPC", upc);
 
                         var result = command.ExecuteScalar();
@@ -389,7 +411,7 @@ namespace AppBodegona.Views
                                 $"Producto no encontrado.",
                                 new Dictionary<string, Action>
                                 {
-                                    { "Aceptar", () => { } }
+                            { "Aceptar", () => { } }
                                 }
                             ));
                         }
@@ -408,6 +430,7 @@ namespace AppBodegona.Views
                 ));
             }
         }
+
 
         private void DescripcionScann_Focused(object sender, FocusEventArgs e)
         {
@@ -434,10 +457,7 @@ namespace AppBodegona.Views
             var loadingPopup = new LoadingPopup();
             try
             {
-                if (!Rg.Plugins.Popup.Services.PopupNavigation.Instance.PopupStack.Contains(loadingPopup))
-                {
-                    await Rg.Plugins.Popup.Services.PopupNavigation.Instance.PushAsync(loadingPopup);
-                }
+                await Rg.Plugins.Popup.Services.PopupNavigation.Instance.PushAsync(loadingPopup);
 
                 AppShell appShell = (AppShell)Application.Current.MainPage;
                 appShell.ResetInactivityTimer();
@@ -487,11 +507,11 @@ namespace AppBodegona.Views
 
                             if (Productos.Count == 0)
                             {
-                                if (Rg.Plugins.Popup.Services.PopupNavigation.Instance.PopupStack.Contains(loadingPopup))
+                                if (PopupNavigation.Instance.PopupStack.Contains(loadingPopup))
                                 {
-                                    await Rg.Plugins.Popup.Services.PopupNavigation.Instance.PopAsync();
+                                    await PopupNavigation.Instance.PopAsync();
                                 }
-
+                              
                                 await PopupNavigation.Instance.PushAsync(new DynamicPopup(
                                     "Alerta",
                                     "No se encontraron productos con esa descripción.",
@@ -501,7 +521,6 @@ namespace AppBodegona.Views
                                     }
                                 ));
                             }
-
                             ListViewProducto.ItemsSource = Productos;
                             ListViewProducto.ItemSelected += ListViewProducto_ItemSelected;
                         }
@@ -510,11 +529,6 @@ namespace AppBodegona.Views
             }
             catch (Exception ex)
             {
-                if (Rg.Plugins.Popup.Services.PopupNavigation.Instance.PopupStack.Contains(loadingPopup))
-                {
-                    await Rg.Plugins.Popup.Services.PopupNavigation.Instance.PopAsync();
-                }
-
                 await PopupNavigation.Instance.PushAsync(new DynamicPopup(
                     "Error de Conexión",
                     $"Error al intentar conectar a la base de datos: {ex.Message}",
@@ -526,15 +540,17 @@ namespace AppBodegona.Views
             }
             finally
             {
-                if (Rg.Plugins.Popup.Services.PopupNavigation.Instance.PopupStack.Contains(loadingPopup))
+                if (PopupNavigation.Instance.PopupStack.Contains(loadingPopup))
                 {
-                    await Rg.Plugins.Popup.Services.PopupNavigation.Instance.PopAsync();
+                    await PopupNavigation.Instance.PopAsync();
                 }
             }
         }
 
-        private void ListViewProducto_ItemSelected(object sender, SelectedItemChangedEventArgs e)
+        private async void ListViewProducto_ItemSelected(object sender, SelectedItemChangedEventArgs e)
         {
+            var loadingPopup = new LoadingPopup();
+            
             if (e.SelectedItem == null)
                 return;
 
@@ -555,6 +571,11 @@ namespace AppBodegona.Views
             Limpiar.IsVisible = true;
 
             DescripcionScann.Unfocus();
+
+            if (Rg.Plugins.Popup.Services.PopupNavigation.Instance.PopupStack.Contains(loadingPopup))
+            {
+                await Rg.Plugins.Popup.Services.PopupNavigation.Instance.PopAsync();
+            }
         }
 
         private void Cancelar_Clicked(object sender, EventArgs e)
@@ -634,7 +655,10 @@ namespace AppBodegona.Views
             string descripcion = DescripcionScann.Text.Trim();
             string fechaVencimiento = FechaScann.Date.ToString("dd/MM/yyyy");
 
-            if (!int.TryParse(CantidadScann.Text.Trim(), out int cantidad) || cantidad <= 0)
+            if (!double.TryParse(CantidadScann.Text.Trim(),
+                     System.Globalization.NumberStyles.Any,
+                     System.Globalization.CultureInfo.InvariantCulture,
+                     out double cantidad) || cantidad <= 0)
             {
                 await PopupNavigation.Instance.PushAsync(new DynamicPopup(
                     "Error",
@@ -643,6 +667,7 @@ namespace AppBodegona.Views
                 ));
                 return;
             }
+
 
             var productoExistente = detalle.FirstOrDefault(p => p.UPC == upc && p.Descripcion == descripcion);
 
@@ -744,9 +769,9 @@ namespace AppBodegona.Views
                     "¿Qué acción desea realizar?",
                     new Dictionary<string, Action>
                     {
-                { "Editar", async () => await ModificarProducto(productoSeleccionado) },
-                { "Eliminar", () => EliminarProducto(productoSeleccionado) },
-                { "Cancelar", () => { } }
+                        { "Editar", async () => await ModificarProducto(productoSeleccionado) },
+                        { "Eliminar", () => EliminarProducto(productoSeleccionado) },
+                        { "Cancelar", () => { } }
                     }
                 ));
 
@@ -762,55 +787,62 @@ namespace AppBodegona.Views
             {
                 Placeholder = "Nueva cantidad",
                 Keyboard = Keyboard.Numeric,
-                Text = producto.Cantidad.ToString("0.00", CultureInfo.InvariantCulture) 
+                Text = producto.Cantidad.ToString("0.00", CultureInfo.InvariantCulture),
+                TextColor = Color.FromHex("#333333"),
+                PlaceholderColor = Color.FromHex("#888888"),
+                BackgroundColor = Color.FromHex("#F5F5F5")
             };
 
             var fechaPicker = new DatePicker
             {
                 Date = DateTime.TryParse(producto.Vencimiento, out DateTime fecha) ? fecha : DateTime.Today,
-                Format = "dd/MM/yyyy"
+                Format = "dd/MM/yyyy",
+                TextColor = Color.FromHex("#333333"),
+                BackgroundColor = Color.FromHex("#F5F5F5")
             };
+
 
             var layout = new StackLayout
             {
                 Children =
-        {
-            new Label { Text = $"UPC: {producto.UPC}", FontAttributes = FontAttributes.Bold, FontSize = 16 },
-            new Label { Text = $"Descripción: {producto.Descripcion}", FontSize = 14 },
-            new Label { Text = "Nueva Cantidad:", FontSize = 14 },
-            cantidadEntry,
-            new Label { Text = "Nueva Fecha de Vencimiento:", FontSize = 14 },
-            fechaPicker
-        }
+                {
+                    new Label { Text = $"UPC: {producto.UPC}", FontAttributes = FontAttributes.Bold, FontSize = 16, TextColor = Color.FromHex("#333333") },
+                    new Label { Text = $"Descripción: {producto.Descripcion}", FontSize = 14, TextColor = Color.FromHex("#333333") },
+                    new Label { Text = "Nueva Cantidad:", FontSize = 14, TextColor = Color.FromHex("#333333") },
+                    cantidadEntry,
+                    new Label { Text = "Nueva Fecha de Vencimiento:", FontSize = 14, TextColor = Color.FromHex("#333333") },
+                    fechaPicker
+                }
             };
+
+            string textoCantidad = cantidadEntry.Text.Replace(",", ".");
 
             var popup = new DynamicPopup(
                 "Modificar Producto",
                 "",
                 new Dictionary<string, Action>
                 {
-            { "Aceptar", () =>
-                {
-                    if (double.TryParse(cantidadEntry.Text, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out double nuevaCantidad) && nuevaCantidad > 0)
-                    {
-                        producto.Cantidad = Math.Round(nuevaCantidad, 2); 
-                        producto.Vencimiento = fechaPicker.Date.ToString("dd/MM/yyyy");
+                    { "Aceptar", () =>
+                        {
+                            if (double.TryParse(textoCantidad, NumberStyles.Any, CultureInfo.InvariantCulture, out double nuevaCantidad)&& nuevaCantidad > 0)
+                            {
+                                producto.Cantidad = Math.Round(nuevaCantidad, 2); 
+                                producto.Vencimiento = fechaPicker.Date.ToString("dd/MM/yyyy");
 
-                        ActualizarLista();
+                                ActualizarLista();
 
-                        tcs.SetResult(true);
-                    }
-                    else
-                    {
-                        tcs.SetResult(false);
-                    }
-                }
-            },
-            { "Cancelar", () => tcs.SetResult(false) }
+                                tcs.SetResult(true);
+                            }
+                            else
+                            {
+                                tcs.SetResult(false);
+                            }
+                        }
+                    },
+                    { "Cancelar", () => tcs.SetResult(false) }
                 },
                 layout
             );
-
             await PopupNavigation.Instance.PushAsync(popup);
             await tcs.Task;
         }
@@ -853,22 +885,18 @@ namespace AppBodegona.Views
                     idUsuario = 0;
                 }
 
-                if (string.IsNullOrWhiteSpace(NombreUsuario))
+                if (string.IsNullOrWhiteSpace(Nombre.Text))
                 {
-                    if (!string.IsNullOrWhiteSpace(Nombre.Text))
-                    {
-                        NombreUsuario = Nombre.Text.Trim();
-                    }
-                    else
-                    {
-                        PopupNavigation.Instance.PushAsync(new DynamicPopup(
-                            "Error",
-                            "Debe ingresar el nombre de quien reporta.",
-                            new Dictionary<string, Action> { { "Aceptar", () => { } } }
-                        ));
-                        return;
-                    }
+                    PopupNavigation.Instance.PushAsync(new DynamicPopup(
+                        "Error",
+                        "Debe ingresar el nombre de quien reporta.",
+                        new Dictionary<string, Action> { { "Aceptar", () => { } } }
+                    ));
+                    return;
                 }
+
+                string encargadoActual = Nombre.Text.Trim();
+
 
                 using (var connection = new MySqlConnection(DatabaseConnection.ConnectionString))
                 {
@@ -931,10 +959,10 @@ namespace AppBodegona.Views
                         }
 
                         string ventasQuery = @"
-                    SELECT SUM(cantidad) AS VentasMensuales
-                    FROM ventasdiarias
-                    WHERE UPC = @UPC
-                    AND fecha BETWEEN @FechaMesAtras AND @FechaActual;";
+                                            SELECT SUM(cantidad) AS VentasMensuales
+                                            FROM ventasdiarias
+                                            WHERE UPC = @UPC
+                                            AND fecha BETWEEN @FechaMesAtras AND @FechaActual;";
 
                         double ventasMensuales = 0;
 
@@ -965,7 +993,7 @@ namespace AppBodegona.Views
                             insertDetalleCommand.Parameters.AddWithValue("@FechaVencimiento", fechaVencimiento.ToString("yyyy-MM-dd"));
 
                             insertDetalleCommand.Parameters.AddWithValue("@IdUsuario", idUsuario);
-                            insertDetalleCommand.Parameters.AddWithValue("@Encargado", NombreUsuario);
+                            insertDetalleCommand.Parameters.AddWithValue("@Encargado", encargadoActual);
                             insertDetalleCommand.Parameters.AddWithValue("@IdSucursal", idSucursal);
                             insertDetalleCommand.Parameters.AddWithValue("@NombreSucursal", nombreSucursal);
 
@@ -1011,7 +1039,6 @@ namespace AppBodegona.Views
             }
         }
 
-
         private async void VaciarDetalle_Clicked(object sender, EventArgs e)
         {
             await PopupNavigation.Instance.PushAsync(new DynamicPopup(
@@ -1033,9 +1060,10 @@ namespace AppBodegona.Views
             ));
         }
 
-        private void CargarEncargados(DateTime fechaSeleccionada)
+        private void CargarEncargados(DateTime fechaInicio, DateTime fechaFin, int tipoReporte)
         {
-            string fechaMysql = fechaSeleccionada.ToString("yyyy-MM-dd");
+            string fechaInicioMysql = fechaInicio.ToString("yyyy-MM-dd");
+            string fechaFinMysql = fechaFin.ToString("yyyy-MM-dd");
             var encargadosList = new List<string>();
 
             using (MySqlConnection connection = new MySqlConnection(DatabaseConnection.ConnectionString))
@@ -1045,13 +1073,28 @@ namespace AppBodegona.Views
                     connection.Open();
 
                     string query = @"
-                                    SELECT DISTINCT Encargado 
-                                    FROM reportefechascortas 
-                                    WHERE DATE(FechaHoraReporte) = @FechaSeleccionada;";
+                                    SELECT DISTINCT Encargado
+                                    FROM reportefechascortas
+                                    WHERE DATE(FechaHoraReporte) BETWEEN @FechaInicio AND @FechaFin ";
+
+                    // 🔹 Filtro según el tipo de reporte
+                    switch (tipoReporte)
+                    {
+                        case 1: // Abarrotes
+                            query += " AND IdDepartamento NOT IN (9,20,6)";
+                            break;
+                        case 2: // Alimentos Frescos
+                            query += " AND IdDepartamento IN (9,20)";
+                            break;
+                        case 3: // Farmacia
+                            query += " AND IdDepartamento = 6";
+                            break;
+                    }
 
                     using (MySqlCommand command = new MySqlCommand(query, connection))
                     {
-                        command.Parameters.AddWithValue("@FechaSeleccionada", fechaMysql);
+                        command.Parameters.AddWithValue("@FechaInicio", fechaInicioMysql);
+                        command.Parameters.AddWithValue("@FechaFin", fechaFinMysql);
 
                         using (MySqlDataReader reader = command.ExecuteReader())
                         {
@@ -1068,11 +1111,14 @@ namespace AppBodegona.Views
 
                     if (encargadosList.Any())
                     {
+                        encargadosList.Insert(0, "Ver usuarios...");
                         UsuariosPicker.ItemsSource = encargadosList;
+                        UsuariosPicker.SelectedIndex = 0;
                     }
                     else
                     {
                         UsuariosPicker.ItemsSource = new List<string> { "No hay registros" };
+                        UsuariosPicker.SelectedIndex = 0;
                     }
                 }
                 catch (Exception ex)
@@ -1089,10 +1135,12 @@ namespace AppBodegona.Views
             }
         }
 
-        private void CargarReporte(DateTime fechaSeleccionada)
+        private void CargarReporte(DateTime fechaInicio, DateTime fechaFin, int tipoReporte)
         {
             var loadingPopup = new LoadingPopup();
-            string fechaMysql = fechaSeleccionada.ToString("yyyy-MM-dd");
+            string fechaInicioMysql = fechaInicio.ToString("yyyy-MM-dd");
+            string fechaFinMysql = fechaFin.ToString("yyyy-MM-dd");
+
             var reporteLista = new List<Reporte>();
 
             using (MySqlConnection connection = new MySqlConnection(DatabaseConnection.ConnectionString))
@@ -1103,49 +1151,68 @@ namespace AppBodegona.Views
 
                     connection.Open();
 
+                    // Query base con rango de fechas
                     string query = @"
-                                    SELECT 
-                                        r.UPC, 
-                                        r.Descripcion, 
-                                        r.Existencia, 
-                                        r.Costo, 
-                                        r.FechaVencimiento, 
-                                        r.Cantidad, 
-                                        r.Ventas, 
-                                        p.Nombre AS Proveedor, 
-                                        d.Nombre AS Departamento, 
-                                        r.Encargado, 
-                                        r.IdSucursal, 
-                                        r.NombreSucursal,
-                                        (r.Cantidad * r.Costo) AS SubCosto,
-                                        DATEDIFF(r.FechaVencimiento, CURDATE()) AS DiasDeVida,
-                                        CASE 
-                                            WHEN r.Ventas IS NOT NULL THEN (r.Ventas / 30) * DATEDIFF(r.FechaVencimiento, CURDATE())
-                                            ELSE 0
-                                        END AS Proyeccion,
-                                        (r.Existencia - 
-                                            CASE 
-                                                WHEN r.Ventas IS NOT NULL THEN (r.Ventas / 30) * DATEDIFF(r.FechaVencimiento, CURDATE())
-                                                ELSE 0
-                                            END
-                                        ) AS InventarioFinal,
-                                        CASE 
-                                            WHEN (r.Existencia - 
-                                                CASE 
-                                                    WHEN r.Ventas IS NOT NULL THEN (r.Ventas / 30) * DATEDIFF(r.FechaVencimiento, CURDATE())
-                                                    ELSE 0
-                                                END
-                                            ) < 0.01 THEN 'SI'
-                                            ELSE 'NO'
-                                        END AS SeDesaloja
-                                    FROM reportefechascortas r
-                                    LEFT JOIN proveedores p ON r.IdProveedor = p.Id
-                                    LEFT JOIN departamentos d ON r.IdDepartamento = d.Id
-                                    WHERE DATE(r.FechaHoraReporte) = @FechaSeleccionada;";
+                SELECT 
+                    r.UPC, 
+                    r.Descripcion, 
+                    r.Cantidad, 
+                    r.Existencia, 
+                    r.Costo, 
+                    r.FechaVencimiento, 
+                    r.Ventas, 
+                    p.Nombre AS Proveedor, 
+                    d.Nombre AS Departamento, 
+                    r.Encargado, 
+                    r.IdSucursal, 
+                    r.NombreSucursal,
+                    (r.Cantidad * r.Costo) AS SubCosto,
+                    DATEDIFF(r.FechaVencimiento, CURDATE()) AS DiasDeVida,
+                    CASE 
+                        WHEN r.Ventas IS NOT NULL THEN (r.Ventas / 30) * DATEDIFF(r.FechaVencimiento, CURDATE())
+                        ELSE 0
+                    END AS Proyeccion,
+                    (r.Existencia - 
+                        CASE 
+                            WHEN r.Ventas IS NOT NULL THEN (r.Ventas / 30) * DATEDIFF(r.FechaVencimiento, CURDATE())
+                            ELSE 0
+                        END
+                    ) AS InventarioFinal,
+                    CASE 
+                        WHEN (r.Existencia - 
+                            CASE 
+                                WHEN r.Ventas IS NOT NULL THEN (r.Ventas / 30) * DATEDIFF(r.FechaVencimiento, CURDATE())
+                                ELSE 0
+                            END
+                        ) < 0.01 THEN 'SI'
+                        ELSE 'NO'
+                    END AS SeDesaloja
+                FROM reportefechascortas r
+                LEFT JOIN proveedores p ON r.IdProveedor = p.Id
+                LEFT JOIN departamentos d ON r.IdDepartamento = d.Id
+                WHERE DATE(r.FechaHoraReporte) BETWEEN @FechaInicio AND @FechaFin
+            ";
+
+                    // Filtro según tipoReporte
+                    switch (tipoReporte)
+                    {
+                        case 1: // Abarrotes
+                            query += " AND r.IdDepartamento NOT IN (9,20,6)";
+                            break;
+
+                        case 2: // Alimentos Frescos
+                            query += " AND r.IdDepartamento IN (9,20)";
+                            break;
+
+                        case 3: // Farmacia
+                            query += " AND r.IdDepartamento = 6";
+                            break;
+                    }
 
                     using (MySqlCommand command = new MySqlCommand(query, connection))
                     {
-                        command.Parameters.AddWithValue("@FechaSeleccionada", fechaMysql);
+                        command.Parameters.AddWithValue("@FechaInicio", fechaInicioMysql);
+                        command.Parameters.AddWithValue("@FechaFin", fechaFinMysql);
 
                         using (MySqlDataReader reader = command.ExecuteReader())
                         {
@@ -1155,11 +1222,11 @@ namespace AppBodegona.Views
                                 {
                                     UPC = reader["UPC"].ToString().Trim(),
                                     Descripcion = reader["Descripcion"].ToString().Trim(),
+                                    Cantidad = reader.IsDBNull(reader.GetOrdinal("Cantidad")) ? 0 : Convert.ToDouble(reader["Cantidad"]),
                                     Existencia = reader.IsDBNull(reader.GetOrdinal("Existencia")) ? 0 : Convert.ToDouble(reader["Existencia"]),
                                     Costo = reader.IsDBNull(reader.GetOrdinal("Costo")) ? 0 : Convert.ToDouble(reader["Costo"]),
                                     SubCosto = reader.IsDBNull(reader.GetOrdinal("SubCosto")) ? 0 : Convert.ToDouble(reader["SubCosto"]),
-                                    FechaVencimiento = reader.IsDBNull(reader.GetOrdinal("FechaVencimiento"))
-                                        ? "" : Convert.ToDateTime(reader["FechaVencimiento"]).ToString("yyyy-MM-dd"),
+                                    FechaVencimiento = reader.IsDBNull(reader.GetOrdinal("FechaVencimiento")) ? "" : Convert.ToDateTime(reader["FechaVencimiento"]).ToString("yyyy-MM-dd"),
                                     DiasDeVida = reader.IsDBNull(reader.GetOrdinal("DiasDeVida")) ? 0 : Convert.ToInt32(reader["DiasDeVida"]),
                                     Ventas = reader.IsDBNull(reader.GetOrdinal("Ventas")) ? 0 : Convert.ToDouble(reader["Ventas"]),
                                     Proyeccion = reader.IsDBNull(reader.GetOrdinal("Proyeccion")) ? 0 : Convert.ToDouble(reader["Proyeccion"]),
@@ -1173,6 +1240,7 @@ namespace AppBodegona.Views
                         }
                     }
 
+                    // Cerrar popup de carga
                     if (PopupNavigation.Instance.PopupStack.Contains(loadingPopup))
                     {
                         PopupNavigation.Instance.PopAsync();
@@ -1185,9 +1253,10 @@ namespace AppBodegona.Views
                     else
                     {
                         ListViewReporte.ItemsSource = new List<Reporte>();
+
                         PopupNavigation.Instance.PushAsync(new DynamicPopup(
                             "Sin Resultados",
-                            "No hay reportes para la fecha seleccionada.",
+                            "No hay reportes en el rango de fechas seleccionado.",
                             new Dictionary<string, Action> { { "Aceptar", () => { } } }
                         ));
                     }
@@ -1206,13 +1275,43 @@ namespace AppBodegona.Views
             }
         }
 
-        private void FechaReporte_DateSelected(object sender, DateChangedEventArgs e)
+
+        private void GenerarReporte_Clicked(object sender, EventArgs e)
         {
-            CargarEncargados(e.NewDate);
-            CargarReporte(e.NewDate);
+            DateTime fechaInicio = FechaInicio.Date;
+            DateTime fechaFin = FechaFin.Date;
+
+            if (TipoReportePicker.SelectedIndex == -1)
+            {
+                PopupNavigation.Instance.PushAsync(new DynamicPopup(
+                    "Error",
+                    "Debe seleccionar un tipo de reporte.",
+                    new Dictionary<string, Action> { { "Aceptar", () => { } } }
+                ));
+                return;
+            }
+
+            if (fechaInicio > fechaFin)
+            {
+                PopupNavigation.Instance.PushAsync(new DynamicPopup(
+                    "Error",
+                    "La fecha de inicio no puede ser mayor que la fecha fin.",
+                    new Dictionary<string, Action> { { "Aceptar", () => { } } }
+                ));
+                return;
+            }
+
+            int tipoReporte = TipoReportePicker.SelectedIndex + 1;
+            CargarEncargados(FechaInicio.Date, FechaFin.Date, tipoReporte);
+            CargarReporte(FechaInicio.Date, FechaFin.Date, tipoReporte);
         }
 
-        private async void ExportarReporte()
+        private void ListView_ItemSelectedFalse(object sender, SelectedItemChangedEventArgs e)
+        {
+            ListViewReporte.SelectedItem = null;
+        }
+
+        private async void ExportarReporte(int tipoReporte)
         {
             try
             {
@@ -1248,16 +1347,18 @@ namespace AppBodegona.Views
 
                     worksheet.Cells["B4"].Value = nombreSucursal;
                     worksheet.Cells["B5"].Value = DateTime.Now.ToString("dd/MM/yyyy");
-                    worksheet.Cells["B6"].Value = NombreUsuario;
-                    worksheet.Cells["B7"].Value = "ABARROTES";  
+                    worksheet.Cells["B6"].Value = Nombre.Text; // se usa siempre lo actual escrito
+                    worksheet.Cells["B7"].Value = tipoReporte == 1 ? "ABARROTES" :
+                                                  tipoReporte == 2 ? "ALIMENTOS FRESCOS" :
+                                                  "FARMACIA";
 
                     worksheet.Cells["A4:A7"].Style.Font.Bold = true;
 
                     string[] encabezados = {
-                                                "Escanear", "UPC", "Descripción", "Existencia Física", "Costo", "SubCosto",
-                                                "Fecha de vencimiento", "Días de Vida", "Venta de los últimos 30 días",
-                                                "Proyección de Ventas", "Inventario Final", "¿Se Desaloja?", "Departamento", "Proveedor", "Encargado de Área"
-                                            };
+                        "Escanear", "UPC", "Descripción", "Cantidad", "Existencia Física", "Costo", "SubCosto",
+                        "Fecha de vencimiento", "Días de Vida", "Venta de los últimos 30 días",
+                        "Proyección de Ventas", "Inventario Final", "¿Se Desaloja?", "Departamento", "Proveedor", "Encargado de Área"
+                    };
 
                     for (int i = 0; i < encabezados.Length; i++)
                     {
@@ -1273,48 +1374,81 @@ namespace AppBodegona.Views
                     {
                         worksheet.Cells[row, 2].Value = item.UPC;
                         worksheet.Cells[row, 3].Value = item.Descripcion;
-                        worksheet.Cells[row, 4].Value = item.Existencia;
-                        worksheet.Cells[row, 5].Value = item.Costo;
-                        worksheet.Cells[row, 6].Value = item.SubCosto;
+                        worksheet.Cells[row, 4].Value = item.Cantidad;
+                        worksheet.Cells[row, 5].Value = item.Existencia;
+                        worksheet.Cells[row, 6].Value = item.Costo;
+                        worksheet.Cells[row, 7].Value = item.SubCosto;
 
                         DateTime fecha;
                         if (DateTime.TryParse(item.FechaVencimiento, out fecha))
                         {
-                            worksheet.Cells[row, 7].Value = fecha.ToString("dd/MM/yyyy");
+                            worksheet.Cells[row, 8].Value = fecha.ToString("dd/MM/yyyy");
                         }
                         else
                         {
-                            worksheet.Cells[row, 7].Value = "Fecha inválida";
+                            worksheet.Cells[row, 9].Value = "Fecha inválida";
                         }
 
-                        worksheet.Cells[row, 8].Value = item.DiasDeVida;
-                        worksheet.Cells[row, 9].Value = item.Ventas;
-                        worksheet.Cells[row, 10].Value = item.Proyeccion;
-                        worksheet.Cells[row, 11].Value = item.InventarioFinal;
-                        worksheet.Cells[row, 12].Value = item.SeDesaloja;
-                        worksheet.Cells[row, 13].Value = item.Departamento;
-                        worksheet.Cells[row, 14].Value = item.Proveedor;
-                        worksheet.Cells[row, 15].Value = item.Encargado;
+                        worksheet.Cells[row, 9].Value = item.DiasDeVida;
+                        worksheet.Cells[row, 10].Value = item.Ventas;
+                        worksheet.Cells[row, 11].Value = item.Proyeccion;
+                        worksheet.Cells[row, 12].Value = item.InventarioFinal;
+                        worksheet.Cells[row, 13].Value = item.SeDesaloja;
+                        worksheet.Cells[row, 14].Value = item.Departamento;
+                        worksheet.Cells[row, 15].Value = item.Proveedor;
+                        worksheet.Cells[row, 16].Value = item.Encargado;
 
-                        if (item.DiasDeVida <= 0)
+                        // 🔹 Semáforo de colores según tipo de reporte
+                        int dias = item.DiasDeVida;
+                        var celdaDias = worksheet.Cells[row, 9];
+                        celdaDias.Style.Fill.PatternType = ExcelFillStyle.Solid;
+
+                        switch (tipoReporte)
                         {
-                            worksheet.Cells[row, 8].Style.Fill.PatternType = ExcelFillStyle.Solid;
-                            worksheet.Cells[row, 8].Style.Fill.BackgroundColor.SetColor(Color.Red);
-                            worksheet.Cells[row, 8].Style.Font.Color.SetColor(Color.White);
+                            case 1: // Abarrotes
+                                if (dias <= 30)
+                                    celdaDias.Style.Fill.BackgroundColor.SetColor(Color.Red);
+                                else if (dias <= 90)
+                                    celdaDias.Style.Fill.BackgroundColor.SetColor(Color.Yellow);
+                                else
+                                    celdaDias.Style.Fill.BackgroundColor.SetColor(Color.Green);
+                                break;
+
+                            case 2: // Alimentos Frescos
+                                if (dias <= 15)
+                                    celdaDias.Style.Fill.BackgroundColor.SetColor(Color.Red);
+                                else if (dias <= 30)
+                                    celdaDias.Style.Fill.BackgroundColor.SetColor(Color.Yellow);
+                                else
+                                    celdaDias.Style.Fill.BackgroundColor.SetColor(Color.Green);
+                                break;
+
+                            case 3: // Farmacia
+                                if (dias <= 120)
+                                    celdaDias.Style.Fill.BackgroundColor.SetColor(Color.Red);
+                                else if (dias <= 180)
+                                    celdaDias.Style.Fill.BackgroundColor.SetColor(Color.Yellow);
+                                else
+                                    celdaDias.Style.Fill.BackgroundColor.SetColor(Color.Green);
+                                break;
                         }
 
+                        // Texto siempre en blanco cuando se pinta
+                        celdaDias.Style.Font.Color.SetColor(Color.White);
+
+                        // Reglas extra que ya tenías
                         if (item.InventarioFinal < 1)
                         {
-                            worksheet.Cells[row, 11].Style.Fill.PatternType = ExcelFillStyle.Solid;
-                            worksheet.Cells[row, 11].Style.Fill.BackgroundColor.SetColor(Color.Red);
-                            worksheet.Cells[row, 11].Style.Font.Color.SetColor(Color.White);
+                            worksheet.Cells[row, 12].Style.Fill.PatternType = ExcelFillStyle.Solid;
+                            worksheet.Cells[row, 12].Style.Fill.BackgroundColor.SetColor(Color.Red);
+                            worksheet.Cells[row, 12].Style.Font.Color.SetColor(Color.White);
                         }
 
                         if (item.SeDesaloja == "SI")
                         {
-                            worksheet.Cells[row, 12].Style.Fill.PatternType = ExcelFillStyle.Solid;
-                            worksheet.Cells[row, 12].Style.Fill.BackgroundColor.SetColor(Color.Green);
-                            worksheet.Cells[row, 12].Style.Font.Color.SetColor(Color.White);
+                            worksheet.Cells[row, 13].Style.Fill.PatternType = ExcelFillStyle.Solid;
+                            worksheet.Cells[row, 13].Style.Fill.BackgroundColor.SetColor(Color.Green);
+                            worksheet.Cells[row, 13].Style.Font.Color.SetColor(Color.White);
                         }
 
                         row++;
@@ -1333,7 +1467,8 @@ namespace AppBodegona.Views
                         new Dictionary<string, Action>
                         {
                             { "Abrir", () => AbrirArchivoExcel(rutaArchivo) },
-                            { "Compartir", () => CompartirArchivoExcel(rutaArchivo) }
+                            { "Compartir", () => CompartirArchivoExcel(rutaArchivo) },
+                            { "Cancelar", () => { } }
                         }
                     ));
                 }
@@ -1397,10 +1532,10 @@ namespace AppBodegona.Views
             }
         }
 
-
         private void Compartir_Clicked(object sender, EventArgs e)
         {
-            ExportarReporte();
+            int tipoReporte = TipoReportePicker.SelectedIndex + 1;
+            ExportarReporte(tipoReporte);
         }
     }
 }

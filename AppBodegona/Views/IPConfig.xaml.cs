@@ -82,16 +82,14 @@ namespace AppBodegona.Views
                 {
                     var decryptedJson = result.Text;
 
-                    // Deserializar
-                    var configData = Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<string, string>>(decryptedJson);
+                    var configData = JsonConvert.DeserializeObject<Dictionary<string, string>>(decryptedJson);
 
                     // Desencriptar y asignar
-                    Server.Text = AppBodegona.Services.EncryptionService.Decrypt(configData["ServerAddress"]);
-                    Port.Text = AppBodegona.Services.EncryptionService.Decrypt(configData["PortNumber"]);
-                    Database.Text = AppBodegona.Services.EncryptionService.Decrypt(configData["DatabaseName"]);
-                    User.Text = AppBodegona.Services.EncryptionService.Decrypt(configData["Username"]);
-                    Pass.Text = AppBodegona.Services.EncryptionService.Decrypt(configData["Password"]);
-
+                    Server.Text = EncryptionService.Decrypt(configData["Host"]);
+                    Port.Text = EncryptionService.Decrypt(configData["Port"]);
+                    Database.Text = EncryptionService.Decrypt(configData["Database"]);
+                    User.Text = EncryptionService.Decrypt(configData["UserName"]);
+                    Pass.Text = EncryptionService.Decrypt(configData["Password"]);
 
                     Guardar();
                 }
@@ -133,7 +131,7 @@ namespace AppBodegona.Views
 
                     // Ejecutar TipoSucursal
                     await TipoSucursal();
-                    await DetalleSucursal();
+                    //await DetalleSucursal();
                 }
                 else
                 {
@@ -180,6 +178,8 @@ namespace AppBodegona.Views
 
                                 GlobalValues.IDSucursal = tipoSucursal;
                                 Preferences.Set("ID_Sucursal", tipoSucursal);
+                                Preferences.Set("NombreSucursal", nombreSucursal);
+                                Preferences.Set("RotulacionSucursal", tipoSucursalStr);
 
                                 // Ocultar spinner antes del DisplayAlert
                                 await CerrarPopupSiEstaAbierto();

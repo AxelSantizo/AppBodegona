@@ -16,7 +16,7 @@ namespace AppBodegona.Views
     [XamlCompilation(XamlCompilationOptions.Compile)]
     public partial class Recepcion : ContentPage
     {
-        private readonly List<Proveedores> proveedor = new List<Proveedores>(); 
+        private readonly List<Proveedores> proveedor = new List<Proveedores>();
         private List<DetalleScann> detalle = new List<DetalleScann>();
         public ObservableCollection<Producto> Productos { get; set; }
         public Recepcion()
@@ -112,6 +112,7 @@ namespace AppBodegona.Views
 
             if (string.IsNullOrEmpty(appShell.Usuario))
             {
+                ProveedoresVista.IsVisible = false;
                 var tcs = new TaskCompletionSource<bool>();
 
                 var popup = new DynamicPopup(
@@ -208,7 +209,7 @@ namespace AppBodegona.Views
         int ConfirmNumero = 0;
         int ConfirmMonto = 0;
         int ConfirmFecha = 0;
-        int ConfirmRazon = 0; 
+        int ConfirmRazon = 0;
         int idInventarioGenerado = 0;
         int idFacturaGenerada = 0;
 
@@ -881,6 +882,7 @@ namespace AppBodegona.Views
         private void CargarRazonSocial()
         {
             string serverAddress = Preferences.Get("ServerAddress", string.Empty);
+
             if (string.IsNullOrEmpty(serverAddress))
             {
                 Device.BeginInvokeOnMainThread(() =>
@@ -1112,7 +1114,7 @@ namespace AppBodegona.Views
                 });
                 return;
             }
-            
+
             if (Application.Current.MainPage is AppShell appShell)
             {
                 idUsuario = int.TryParse(appShell.Id, out int idParsed) ? idParsed : 0;
@@ -1562,7 +1564,7 @@ namespace AppBodegona.Views
             DescripcionScann.IsReadOnly = true;
             UPCScann.IsReadOnly = true;
             Limpiar.IsVisible = true;
-            
+
             DescripcionScann.Unfocus();
         }
 
@@ -1817,7 +1819,7 @@ namespace AppBodegona.Views
                 ));
             }
         }
-        
+
         public void InsertarFacturaLocal()
         {
             int idProveedor = int.Parse(IdProveedor.Text);
@@ -2058,7 +2060,7 @@ namespace AppBodegona.Views
                         var idResult = validarCommand.ExecuteScalar();
                         if (idResult != null && long.TryParse(idResult.ToString(), out long idDetalle))
                         {
-                            ultimoProducto.Id = (int)idDetalle; 
+                            ultimoProducto.Id = (int)idDetalle;
                         }
                         else
                         {
@@ -2232,7 +2234,7 @@ namespace AppBodegona.Views
                         () => {}
                     }
                 },
-                contenidoAdicional 
+                contenidoAdicional
             ));
         }
 
@@ -2421,9 +2423,7 @@ namespace AppBodegona.Views
 
                         Skus.Text = skus.ToString("F2"); ;
                         Unidades.Text = totalUnidades.ToString("F2");
-                        Fardos.Text = "0.00";
                         BonificacionU.Text = totalBonificacion.ToString("F2");
-                        BonificacionF.Text = "0.00";
                         CostoTotal.Text = costoTotal.ToString("F2");
 
                         viewDetalle.IsVisible = false;
@@ -2462,35 +2462,35 @@ namespace AppBodegona.Views
                 "¿Desea confirmar el inventario?",
                 new Dictionary<string, Action>
                 {
-            {
-                "Aceptar",
-                () =>
-                {
-                    ConfirmarTablaInventario();
-                    ConfirmarDetalleInventario();
-                    ConfirmarFacturaLocal();
-                    ConfirmarHistorialInventario();
-                    ConfirmarFacturaCentral();
-                    ResetControls();
-
-                    PopupNavigation.Instance.PushAsync(new DynamicPopup(
-                        "Éxito",
-                        $"El id del inventario generado es: {idInventarioGenerado}\n\n¡RECUERDE DE REALIZAR EL RECHEQUEO EN CORI PARA FINALIZAR!.",
-                        new Dictionary<string, Action>
+                    {
+                        "Aceptar",
+                        () =>
                         {
-                            { "Aceptar", () => 
-                                {
-                                    viewFactura.IsVisible = true;
-                                    viewDetalle.IsVisible = false;
-                                    viewConfirmar.IsVisible = false;
-                                } 
-                            }
-                        }
-                    ));
+                            ConfirmarTablaInventario();
+                            ConfirmarDetalleInventario();
+                            ConfirmarFacturaLocal();
+                            ConfirmarHistorialInventario();
+                            ConfirmarFacturaCentral();
+                            ResetControls();
 
-                }
-            },
-            { "Cancelar", () => { } }
+                            PopupNavigation.Instance.PushAsync(new DynamicPopup(
+                                "Éxito",
+                                $"El id del inventario generado es: {idInventarioGenerado}\n\n¡RECUERDE DE REALIZAR EL RECHEQUEO EN CORI PARA FINALIZAR!.",
+                                new Dictionary<string, Action>
+                                {
+                                    { "Aceptar", () =>
+                                        {
+                                            viewFactura.IsVisible = true;
+                                            viewDetalle.IsVisible = false;
+                                            viewConfirmar.IsVisible = false;
+                                        }
+                                    }
+                                }
+                            ));
+
+                        }
+                    },
+                    { "Cancelar", () => { } }
                 }
             ));
         }
@@ -2886,8 +2886,8 @@ namespace AppBodegona.Views
                     {
                         insertCommand.Parameters.AddWithValue("@IdProveedores", idProveedor);
                         insertCommand.Parameters.AddWithValue("@Proveedor", nombreProveedor);
-                        insertCommand.Parameters.AddWithValue("@IdUsuario", idUsuario); 
-                        insertCommand.Parameters.AddWithValue("@Usuario", NombreUsuario); 
+                        insertCommand.Parameters.AddWithValue("@IdUsuario", idUsuario);
+                        insertCommand.Parameters.AddWithValue("@Usuario", NombreUsuario);
                         insertCommand.Parameters.AddWithValue("@IdRazon", idRazon);
                         insertCommand.Parameters.AddWithValue("@NombreRazon", nombreRazon);
                         insertCommand.Parameters.AddWithValue("@Serie", serieFactura);
@@ -2900,7 +2900,7 @@ namespace AppBodegona.Views
                         insertCommand.Parameters.AddWithValue("@Observaciones", observaciones);
                         insertCommand.Parameters.AddWithValue("@IdSucursal", idSucursal);
                         insertCommand.Parameters.AddWithValue("@Sucursal", nombreSucursal);
-                        insertCommand.Parameters.AddWithValue("@idInventario", idInventarioGenerado); 
+                        insertCommand.Parameters.AddWithValue("@idInventario", idInventarioGenerado);
                         insertCommand.Parameters.AddWithValue("@NIT", nitProveedor);
                         insertCommand.Parameters.AddWithValue("@IdSucursalCori", 2);
 
@@ -3004,9 +3004,7 @@ namespace AppBodegona.Views
 
             Skus.Text = string.Empty;
             Unidades.Text = string.Empty;
-            Fardos.Text = string.Empty;
             BonificacionU.Text = string.Empty;
-            BonificacionF.Text = string.Empty;
             CostoTotal.Text = string.Empty;
 
 
@@ -3049,6 +3047,9 @@ namespace AppBodegona.Views
 
             OverlayRazon.IsVisible = false;
             Overlay.IsVisible = false;
+            ContinueDetail.IsVisible = false;
+            SaveDetail.IsVisible = true;
+
         }
 
         private void ResetCheckButton(Button button)

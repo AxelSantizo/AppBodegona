@@ -196,7 +196,7 @@ namespace AppBodegona.Views
                                 await Rg.Plugins.Popup.Services.PopupNavigation.Instance.PopAsync();
                                 var popup = new DynamicPopup(
                                     "Error",
-                                    "Usuario o contraseña incorrectos.",
+                                    "Contraseña incorrecta.",
                                     new Dictionary<string, Action>
                                     {
                                         { "OK", () => {} }

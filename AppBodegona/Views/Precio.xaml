@@ -33,7 +33,7 @@
                                HorizontalOptions="Start"
                                Focused="Button_Focused"
                                TextChanged="Reset_TextChanged"
-                               MaxLength="14"/>
+                               MaxLength="13"/>
 
                         <Button x:Name="Cambio"
                                 FontFamily="MaterialIcons-Regular"
@@ -123,7 +123,7 @@
                                                 <Button x:Name="Editar"
                                                         FontFamily="MaterialIcons-Regular"
                                                         Text="&#xe3c9;"
-                                                        FontSize="Small"
+                                                        FontSize="Large"
                                                         HeightRequest="35"
                                                         CornerRadius="8"
                                                         TextColor="#FFF"

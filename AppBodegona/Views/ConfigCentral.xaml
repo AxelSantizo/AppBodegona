@@ -1,8 +1,8 @@
 ﻿<?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             x:Class="AppBodegona.Views.IPConfig"
-             Title="Configuracion de Conexion Sucursal"
+             x:Class="AppBodegona.Views.ConfigCentral"
+             Title="Configuracion de Conexion Central"
              BackgroundColor="#2B2B2B"
              Shell.NavBarIsVisible="False">
     <ContentPage.Content>
@@ -24,7 +24,7 @@
                            IsPassword="True"
                            IsReadOnly="True"
                            Grid.Column="1"
-                           Grid.Row="0"/>
+                           Grid.Row="0"/>           
 
                     <Entry x:Name="Port"
                            Margin="0,10"
@@ -73,7 +73,7 @@
 
             <StackLayout HorizontalOptions="CenterAndExpand" VerticalOptions="CenterAndExpand" Spacing="30" Padding="20">
 
-                <Label Text="Escanea el código QR para configurar la conexión de la *Sucursal*"
+                <Label Text="Escanea el código QR para configurar la conexión a *Central*"
                        FontSize="Medium"
                        TextColor="#FFFFFF"
                        HorizontalTextAlignment="Center"

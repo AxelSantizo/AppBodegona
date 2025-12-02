@@ -119,7 +119,7 @@
                                                 <Button x:Name="EditarF"
                                                         FontFamily="MaterialIcons-Regular"
                                                         Text="&#xe3c9;"
-                                                        FontSize="Small"
+                                                        FontSize="Large"
                                                         CornerRadius="8"
                                                         TextColor="#FFF"
                                                         BackgroundColor="#00A6BD"
@@ -190,7 +190,7 @@
 
                     <BoxView HeightRequest="1" Color="White" HorizontalOptions="FillAndExpand" Margin="-20,0"/>
 
-                    <ListView x:Name="FamiliaListView" HasUnevenRows="True" IsVisible="true" Margin="-20,0" ItemSelected="ListView_ItemSelectedFalse">
+                    <ListView x:Name="FamiliaListView" HasUnevenRows="True" IsVisible="true" Margin="-20,0,-20,-50" ItemSelected="ListView_ItemSelectedFalse">
                         <ListView.ItemTemplate>
                             <DataTemplate>
                                 <ViewCell>
@@ -217,7 +217,7 @@
                                             <Button x:Name="EliminarF"
                                                     FontFamily="MaterialIcons-Regular"
                                                     Text="&#xe644;"
-                                                    FontSize="Body"
+                                                    FontSize="Large"
                                                     HeightRequest="35"    
                                                     TextColor="#FFF"
                                                     BackgroundColor="#00A6BD"
@@ -335,7 +335,7 @@
                                WidthRequest="200"
                                HorizontalOptions="Start"
                                TextChanged="Reset_TextChanged"
-                               MaxLength="14"/>
+                               MaxLength="13"/>
 
                         <Button x:Name="Cambio1"
                                 FontFamily="MaterialIcons-Regular"
@@ -423,7 +423,7 @@
 
                                                 <Button FontFamily="MaterialIcons-Regular"
                                                         Text="&#xe147;"
-                                                        FontSize="Medium"
+                                                        FontSize="Large"
                                                         HeightRequest="40"
                                                         TextColor="#FFF"
                                                         BackgroundColor="#00A6BD"

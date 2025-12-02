@@ -157,13 +157,9 @@ namespace AppBodegona.Views
                 {
                     string entryupcText = eupc.Text;
 
-                    if (entryupcText.Length < 13)
-                    {
-                        int cerosToAdd = 13 - entryupcText.Length;
-                        entryupcText = new string('0', cerosToAdd) + entryupcText;
-                    }
+                    string stringUpc = entryupcText.PadLeft(13, '0');
 
-                    string query = $"SELECT Upc, Precio, DescLarga, Nivel1, PrecioMaxNivel1, Existencia, GruposProductosId FROM productos WHERE Upc = '{entryupcText}'";
+                    string query = $"SELECT Upc, Precio, DescLarga, Nivel1, PrecioMaxNivel1, Existencia, GruposProductosId FROM productos WHERE Upc = '{stringUpc}'";
 
                     using (MySqlConnection connection = new MySqlConnection(DatabaseConnection.ConnectionString))
                     {
@@ -318,6 +314,7 @@ namespace AppBodegona.Views
                 ResultadosListView.IsVisible = false;
                 Img.IsVisible = true;
                 await Shell.Current.GoToAsync(nameof(IPConfig));
+                return;
             }
             else
             {

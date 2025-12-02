@@ -14,7 +14,7 @@ namespace AppBodegona
     public partial class App : Application
     {
 
-        private const string UpdateCheckUrl = "https://raw.githubusercontent.com/Santizo00/AppBodegona1/master/version.json";
+        private const string UpdateCheckUrl = "https://raw.githubusercontent.com/AxelSantizo/VersionAppBodegona/refs/heads/main/version.json";
 
         public App()
         {

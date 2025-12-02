@@ -7,7 +7,7 @@ namespace AppBodegona.Services
 {
     public static class EncryptionService
     {
-        private static readonly string rawKey = "SecureQRKey12345"; // 🔐 16 caracteres exactos
+        private static readonly string rawKey = "Bodegona24451988"; // 🔐 16 caracteres exactos
         private static readonly byte[] key = Encoding.UTF8.GetBytes(rawKey);
         private static readonly byte[] iv = new byte[16]; // ⚠️ IV fijo en ceros (para demo)
 

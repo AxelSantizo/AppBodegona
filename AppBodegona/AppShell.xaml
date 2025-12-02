@@ -127,6 +127,9 @@
         <ShellContent Route="FechasCortas" ContentTemplate="{DataTemplate local:FechasCortas}" />
     </FlyoutItem>
 
+    <!--<FlyoutItem x:Name="RecepcionItem" Title="Recepcion de Mercaderia" Icon="icon_recepcion.png">
+        <ShellContent Route="Recepcion" ContentTemplate="{DataTemplate local:Recepcion}" />
+    </FlyoutItem>-->
 
     <FlyoutItem x:Name="PrecioItem" Title="Modificacion de Precio" Icon="icon_cambio.png">
         <ShellContent Route="Precio" ContentTemplate="{DataTemplate local:Precio}" />
@@ -136,11 +139,6 @@
         <ShellContent Route="Familias" ContentTemplate="{DataTemplate local:Familias}" />
     </FlyoutItem>
 
-    <!-- 
-    <FlyoutItem x:Name="RecepcionItem" Title="Recepcion de Mercaderia" Icon="icon_recepcion.png">
-        <ShellContent Route="Recepcion" ContentTemplate="{DataTemplate local:Recepcion}" />
-    </FlyoutItem>
-     -->
 
     <!-- Footer con el logo -->
     <Shell.FlyoutFooter>

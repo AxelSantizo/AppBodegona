@@ -121,8 +121,8 @@ namespace AppBodegona.Views
                     "Para continuar, inicie sesión",
                     new Dictionary<string, Action>
                     {
-                { "Aceptar", () => tcs.SetResult(true) },
-                { "Cancelar", () => tcs.SetResult(false) }
+                        { "Aceptar", () => tcs.SetResult(true) },
+                        { "Cancelar", () => tcs.SetResult(false) }
                     });
 
                 await PopupNavigation.Instance.PushAsync(popup);
@@ -147,7 +147,7 @@ namespace AppBodegona.Views
                         "No tiene permiso para acceder a esta página.",
                         new Dictionary<string, Action>
                         {
-                    { "OK", async () => await Shell.Current.GoToAsync($"//{nameof(Existencia)}") }
+                            { "OK", async () => await Shell.Current.GoToAsync($"//{nameof(Existencia)}") }
                         });
 
                     await PopupNavigation.Instance.PushAsync(popup);
@@ -246,7 +246,7 @@ namespace AppBodegona.Views
                                         "No se encontró la familia.",
                                         new Dictionary<string, Action>
                                         {
-                                    { "Aceptar", () => {} }
+                                            { "Aceptar", () => {} }
                                         });
 
                                     await PopupNavigation.Instance.PushAsync(popup);

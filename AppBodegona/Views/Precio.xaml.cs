@@ -1,14 +1,15 @@
 ﻿using AppBodegona.Services;
+using MySqlConnector;
+using Rg.Plugins.Popup.Services;
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Globalization;
+using System.Linq;
+using System.Threading.Tasks;
+using Xamarin.Essentials;
 using Xamarin.Forms;
 using Xamarin.Forms.Xaml;
-using MySqlConnector;
-using System.Threading.Tasks;
-using System.Collections.Generic;
-using Xamarin.Essentials;
-using Rg.Plugins.Popup.Services;
-using System.Linq;
 
 namespace AppBodegona.Views
 {
@@ -1003,11 +1004,12 @@ namespace AppBodegona.Views
 
         public class HistorialCambiosHelper
         {
-            public static async Task InsertarHistorialCambio(string upc, int tipocambio, string valorAntiguo, string valorNuevo)
+            public static async Task InsertarHistorialCambio(string upc, int tipocambio, double valorAntiguo, double valorNuevo)
             {
                 AppShell appShell = (AppShell)Application.Current.MainPage;
-                string query = "INSERT INTO historialcambios (IdUsuarios, Usuario, Fecha, FechaHora, Upc, TipoCambio, DoubleAnt, DoubleAct) " +
-                               "VALUES (@IdUsuario, @Usuario, @Fecha, @FechaHora, @Upc, @TipoCambio, @ValorAntiguo, @ValorNuevo)";
+                string query = @"INSERT INTO historialcambios 
+                        (IdUsuarios, Usuario, Fecha, FechaHora, Upc, TipoCambio, DoubleAnt, DoubleAct) 
+                        VALUES (@IdUsuario, @Usuario, @Fecha, @FechaHora, @Upc, @TipoCambio, @ValorAntiguo, @ValorNuevo)";
 
                 using (MySqlConnection connection = new MySqlConnection(DatabaseConnection.ConnectionString))
                 using (MySqlCommand command = new MySqlCommand(query, connection))
@@ -1016,8 +1018,8 @@ namespace AppBodegona.Views
                     command.Parameters.AddWithValue("@Usuario", appShell.Usuario);
                     command.Parameters.AddWithValue("@Upc", upc);
                     command.Parameters.AddWithValue("@TipoCambio", tipocambio);
-                    command.Parameters.AddWithValue("@ValorAntiguo", valorAntiguo);
-                    command.Parameters.AddWithValue("@ValorNuevo", valorNuevo);
+                    command.Parameters.AddWithValue("@ValorAntiguo", valorAntiguo.ToString(CultureInfo.InvariantCulture));
+                    command.Parameters.AddWithValue("@ValorNuevo", valorNuevo.ToString(CultureInfo.InvariantCulture));
                     command.Parameters.AddWithValue("@Fecha", DateTime.Now.Date);
                     command.Parameters.AddWithValue("@FechaHora", DateTime.Now);
 
@@ -1033,7 +1035,7 @@ namespace AppBodegona.Views
                         "Error al insertar historial: " + ex.Message,
                         new Dictionary<string, Action>
                         {
-                            { "OK", () => {} }
+                    { "OK", () => {} }
                         });
 
                         await PopupNavigation.Instance.PushAsync(popup);
@@ -1041,6 +1043,7 @@ namespace AppBodegona.Views
                 }
             }
         }
+
 
         public async void ValidarCambios()
         {
@@ -1161,7 +1164,7 @@ namespace AppBodegona.Views
         {
             if (valorAntiguo != valorNuevo)
             {
-                await HistorialCambiosHelper.InsertarHistorialCambio(upc, tipoCambioId, valorAntiguo, valorNuevo);
+                await HistorialCambiosHelper.InsertarHistorialCambio(upc, tipoCambioId, Convert.ToDouble(valorAntiguo), Convert.ToDouble(valorNuevo));
             }
         }
 
