@@ -859,6 +859,9 @@ namespace AppBodegona.Views
                 if (!decimal.TryParse(precioString, out precio) || precio <= 0)
                     throw new Exception("El precio principal no puede ser 0.");
 
+                if (!decimal.TryParse(margenString, out margen))
+                    throw new Exception("El margen principal debe ser válido.");
+
                 if (!int.TryParse(nivel1String, out nivel1) || !decimal.TryParse(precio1String, out precio1) || !decimal.TryParse(margen1String, out margen1))
                     throw new Exception("Los campos del Nivel 1 deben ser válidos.");
 
@@ -1198,25 +1201,18 @@ namespace AppBodegona.Views
                 }
                 else
                 {
-                    decimal precioN = costo / (1 - (margen * 0.01m));
+                    decimal precioN = costo * (1 + (margen * 0.01m));
+                    if (precioN < 0)
+                    {
+                        precioN = 0;
+                    }
                     precioc.Text = precioN.ToString("F2");
                 }
             }
             else
             {
-                decimal margenN = ((precio - costo) / (precio * 0.01m));
-                if (margenN > 99)
-                {
-                    margenc.Text = "99.99";
-                }
-                else if (margenN < -99)
-                {
-                    margenc.Text = "-99.99";
-                }
-                else
-                {
-                    margenc.Text = margenN.ToString("F2");
-                }
+                decimal margenN = costo == 0 ? 0 : ((precio - costo) / costo) * 100m;
+                margenc.Text = margenN.ToString("F2");
             }
 
             if (string.IsNullOrWhiteSpace(precio1Text) || precio1 == 0)
@@ -1228,25 +1224,18 @@ namespace AppBodegona.Views
                 }
                 else
                 {
-                    decimal precio1N = costo / (1 - (margen1 * 0.01m));
+                    decimal precio1N = costo * (1 + (margen1 * 0.01m));
+                    if (precio1N < 0)
+                    {
+                        precio1N = 0;
+                    }
                     P1.Text = precio1N.ToString("F2");
                 }
             }
             else
             {
-                decimal margen1N = ((precio1 - costo) / (precio1 * 0.01m));
-                if (margen1N > 99)
-                {
-                    M1.Text = "99.99";
-                }
-                else if (margen1N < -99)
-                {
-                    M1.Text = "-99.99";
-                }
-                else
-                {
-                    M1.Text = margen1N.ToString("F2");
-                }
+                decimal margen1N = costo == 0 ? 0 : ((precio1 - costo) / costo) * 100m;
+                M1.Text = margen1N.ToString("F2");
             }
 
             if (string.IsNullOrWhiteSpace(precio2Text) || precio2 == 0)
@@ -1258,25 +1247,18 @@ namespace AppBodegona.Views
                 }
                 else
                 {
-                    decimal precio2N = costo / (1 - (margen2 * 0.01m));
+                    decimal precio2N = costo * (1 + (margen2 * 0.01m));
+                    if (precio2N < 0)
+                    {
+                        precio2N = 0;
+                    }
                     P2.Text = precio2N.ToString("F2");
                 }
             }
             else
             {
-                decimal margen2N = ((precio2 - costo) / (precio2 * 0.01m));
-                if (margen2N > 99)
-                {
-                    M2.Text = "99.99";
-                }
-                else if (margen2N < -99)
-                {
-                    M2.Text = "-99.99";
-                }
-                else
-                {
-                    M2.Text = margen2N.ToString("F2");
-                }
+                decimal margen2N = costo == 0 ? 0 : ((precio2 - costo) / costo) * 100m;
+                M2.Text = margen2N.ToString("F2");
             }
         }
 
@@ -1306,19 +1288,8 @@ namespace AppBodegona.Views
             }
             else if (decimal.TryParse(precioText, out decimal precio) && precio != 0)
             {
-                decimal margen = ((precio - costo) / (precio * 0.01m));
-                if (margen > 99)
-                {
-                    margenEntry.Text = "99.99";
-                }
-                else if (margen < -99)
-                {
-                    margenEntry.Text = "-99.99";
-                }
-                else
-                {
-                    margenEntry.Text = margen.ToString("F2");
-                }
+                decimal margen = costo == 0 ? 0 : ((precio - costo) / costo) * 100m;
+                margenEntry.Text = margen.ToString("F2");
             }
             else
             {
@@ -1351,7 +1322,11 @@ namespace AppBodegona.Views
             }
             else if (decimal.TryParse(margenText, out decimal margen) && margen != 0)
             {
-                decimal precio = costo / (1 - (margen * 0.01m));
+                decimal precio = costo * (1 + (margen * 0.01m));
+                if (precio < 0)
+                {
+                    precio = 0;
+                }
                 precioEntry.Text = precio.ToString("F2");
             }
             else
@@ -1468,7 +1443,7 @@ namespace AppBodegona.Views
             if (decimal.TryParse(text, out decimal result))
             {
                 int decimalPlaces = BitConverter.GetBytes(decimal.GetBits(result)[3])[2];
-                if (decimalPlaces <= 2 && result >= -99.99m && result <= 99.99m)
+                if (decimalPlaces <= 2 && result >= -999999m && result <= 999999m)
                 {
                     return true;
                 }

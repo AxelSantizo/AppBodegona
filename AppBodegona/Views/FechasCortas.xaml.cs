@@ -24,6 +24,11 @@ namespace AppBodegona.Views
         private List<DetalleScann> detalle = new List<DetalleScann>();
         public ObservableCollection<Producto> Productos { get; set; }public static bool NavegacionInterna { get; set; } = false;
 
+        private const string PrefDraftFechaHora = "FechasCortasDraftFechaHora";
+        private const string PrefDraftEncargado = "FechasCortasDraftEncargado";
+        private const string PrefDraftUsuarioId = "FechasCortasDraftUsuarioId";
+        private const string DraftDateFormat = "yyyy-MM-dd HH:mm:ss";
+
         
         private bool regresandoDeScanner = false;
         private bool popupMostrado = false;
@@ -91,6 +96,441 @@ namespace AppBodegona.Views
             public string Departamento { get; set; }
             public string Proveedor { get; set; }
             public string Encargado { get; set; }
+        }
+
+        private string ObtenerEncargadoActual()
+        {
+            return Nombre?.Text?.Trim() ?? string.Empty;
+        }
+
+        private void GuardarSesionBorrador(DateTime fechaHoraSesion, string encargado)
+        {
+            Preferences.Set(PrefDraftFechaHora, fechaHoraSesion.ToString(DraftDateFormat));
+            Preferences.Set(PrefDraftEncargado, encargado ?? string.Empty);
+            Preferences.Set(PrefDraftUsuarioId, idUsuario);
+        }
+
+        private DateTime ObtenerOCrearSesionBorrador(string encargado)
+        {
+            string fechaGuardada = Preferences.Get(PrefDraftFechaHora, string.Empty);
+            string encargadoGuardado = Preferences.Get(PrefDraftEncargado, string.Empty);
+            int usuarioGuardado = Preferences.Get(PrefDraftUsuarioId, -1);
+
+            if (usuarioGuardado == idUsuario &&
+                string.Equals(encargadoGuardado, encargado, StringComparison.OrdinalIgnoreCase) &&
+                DateTime.TryParseExact(fechaGuardada, DraftDateFormat, CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime fechaSesion))
+            {
+                return fechaSesion;
+            }
+
+            DateTime nuevaSesion = DateTime.Now;
+            GuardarSesionBorrador(nuevaSesion, encargado);
+            return nuevaSesion;
+        }
+
+        private void LimpiarSesionBorrador()
+        {
+            Preferences.Remove(PrefDraftFechaHora);
+            Preferences.Remove(PrefDraftEncargado);
+            Preferences.Remove(PrefDraftUsuarioId);
+        }
+
+        private bool DebeFiltrarPorUsuarioActual()
+        {
+            if (Application.Current.MainPage is AppShell appShell &&
+                int.TryParse(appShell.IdNivel, out int idNivel))
+            {
+                return idNivel < 5 && idUsuario > 0;
+            }
+
+            return false;
+        }
+
+        private async Task<(int IdDepartamento, int IdProveedor, double Existencia, double Costo, double VentasMensuales)?> ObtenerDatosReporteProductoAsync(MySqlConnection connection, MySqlTransaction transaction, string upc)
+        {
+            int idDepartamento = 0;
+            int idProveedor = 0;
+            double existencia = 0;
+            double costo = 0;
+
+            string selectQuery = @"
+                                 SELECT IdDepartamentos, IdProveedores, Existencia, Costo 
+                                 FROM productos 
+                                 WHERE UPC = @UPC
+                                 LIMIT 1;";
+
+            using (var selectCommand = new MySqlCommand(selectQuery, connection, transaction))
+            {
+                selectCommand.Parameters.AddWithValue("@UPC", upc);
+
+                using (var reader = await selectCommand.ExecuteReaderAsync())
+                {
+                    if (await reader.ReadAsync())
+                    {
+                        object rawDepartamento = reader["IdDepartamentos"];
+                        object rawProveedor = reader["IdProveedores"];
+                        object rawExistencia = reader["Existencia"];
+                        object rawCosto = reader["Costo"];
+
+                        idDepartamento = rawDepartamento == DBNull.Value ? 0 : Convert.ToInt32(rawDepartamento);
+                        idProveedor = rawProveedor == DBNull.Value ? 0 : Convert.ToInt32(rawProveedor);
+                        existencia = rawExistencia == DBNull.Value ? 0d : Convert.ToDouble(rawExistencia, CultureInfo.InvariantCulture);
+                        costo = rawCosto == DBNull.Value ? 0d : Convert.ToDouble(rawCosto, CultureInfo.InvariantCulture);
+                    }
+                    else
+                    {
+                        return null;
+                    }
+                }
+            }
+
+            DateTime fechaActual = DateTime.Now;
+            DateTime fechaMesAtras = fechaActual.AddMonths(-1);
+            double ventasMensuales = 0;
+
+            string ventasQuery = @"
+                                SELECT SUM(cantidad) AS VentasMensuales
+                                FROM ventasdiarias
+                                WHERE UPC = @UPC
+                                AND fecha BETWEEN @FechaMesAtras AND @FechaActual;";
+
+            using (var ventasCommand = new MySqlCommand(ventasQuery, connection, transaction))
+            {
+                ventasCommand.Parameters.AddWithValue("@UPC", upc);
+                ventasCommand.Parameters.AddWithValue("@FechaMesAtras", fechaMesAtras.ToString("yyyy-MM-dd"));
+                ventasCommand.Parameters.AddWithValue("@FechaActual", fechaActual.ToString("yyyy-MM-dd"));
+
+                var result = await ventasCommand.ExecuteScalarAsync();
+                if (result != DBNull.Value && result != null)
+                {
+                    ventasMensuales = Convert.ToDouble(result);
+                }
+            }
+
+            return (idDepartamento, idProveedor, existencia, costo, ventasMensuales);
+        }
+
+        private async Task GuardarBorradorAsync(bool mostrarExito = false)
+        {
+            try
+            {
+                string encargadoActual = ObtenerEncargadoActual();
+                if (string.IsNullOrWhiteSpace(encargadoActual))
+                {
+                    return;
+                }
+
+                if (detalle == null || !detalle.Any())
+                {
+                    return;
+                }
+
+                DateTime fechaHoraSesion = ObtenerOCrearSesionBorrador(encargadoActual);
+
+                using (var connection = new MySqlConnection(DatabaseConnection.ConnectionString))
+                {
+                    await connection.OpenAsync();
+
+                    using (var dbTransaction = await connection.BeginTransactionAsync())
+                    {
+                        var transaction = (MySqlTransaction)dbTransaction;
+                        try
+                        {
+                            string deleteQuery = @"
+                                DELETE FROM reportefechascortas
+                                WHERE FechaHoraReporte = @FechaHoraReporte
+                                  AND IdUsuario = @IdUsuario
+                                  AND Encargado = @Encargado
+                                  AND IdSucursal = @IdSucursal;";
+
+                            using (var deleteCommand = new MySqlCommand(deleteQuery, connection, transaction))
+                            {
+                                deleteCommand.Parameters.AddWithValue("@FechaHoraReporte", fechaHoraSesion.ToString(DraftDateFormat));
+                                deleteCommand.Parameters.AddWithValue("@IdUsuario", idUsuario);
+                                deleteCommand.Parameters.AddWithValue("@Encargado", encargadoActual);
+                                deleteCommand.Parameters.AddWithValue("@IdSucursal", idSucursal);
+                                await deleteCommand.ExecuteNonQueryAsync();
+                            }
+
+                            string insertDetalleQuery = @"
+                                INSERT INTO reportefechascortas (UPC, Descripcion, Cantidad, FechaVencimiento, IdUsuario, Encargado,
+                                IdSucursal, NombreSucursal, IdDepartamento, IdProveedor, Existencia, Costo, FechaHoraReporte, Ventas)
+                                VALUES (@UPC, @Descripcion, @Cantidad, @FechaVencimiento, @IdUsuario, @Encargado,
+                                @IdSucursal, @NombreSucursal, @IdDepartamento, @IdProveedor, @Existencia, @Costo, @FechaHoraReporte, @VentasMensuales);";
+
+                            foreach (var p in detalle)
+                            {
+                                if (string.IsNullOrWhiteSpace(p.UPC) ||
+                                    string.IsNullOrWhiteSpace(p.Descripcion) ||
+                                    string.IsNullOrWhiteSpace(p.Vencimiento) ||
+                                    p.Cantidad <= 0)
+                                {
+                                    continue;
+                                }
+
+                                if (!DateTime.TryParseExact(p.Vencimiento, "dd/MM/yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime fechaVencimiento))
+                                {
+                                    continue;
+                                }
+
+                                var datosProducto = await ObtenerDatosReporteProductoAsync(connection, transaction, p.UPC.Trim());
+                                if (!datosProducto.HasValue)
+                                {
+                                    continue;
+                                }
+
+                                using (var insertDetalleCommand = new MySqlCommand(insertDetalleQuery, connection, transaction))
+                                {
+                                    insertDetalleCommand.Parameters.AddWithValue("@UPC", p.UPC.Trim());
+                                    insertDetalleCommand.Parameters.AddWithValue("@Descripcion", p.Descripcion.Trim());
+                                    insertDetalleCommand.Parameters.AddWithValue("@Cantidad", p.Cantidad);
+                                    insertDetalleCommand.Parameters.AddWithValue("@FechaVencimiento", fechaVencimiento.ToString("yyyy-MM-dd"));
+
+                                    insertDetalleCommand.Parameters.AddWithValue("@IdUsuario", idUsuario);
+                                    insertDetalleCommand.Parameters.AddWithValue("@Encargado", encargadoActual);
+                                    insertDetalleCommand.Parameters.AddWithValue("@IdSucursal", idSucursal);
+                                    insertDetalleCommand.Parameters.AddWithValue("@NombreSucursal", nombreSucursal);
+
+                                    insertDetalleCommand.Parameters.AddWithValue("@IdDepartamento", datosProducto.Value.IdDepartamento);
+                                    insertDetalleCommand.Parameters.AddWithValue("@IdProveedor", datosProducto.Value.IdProveedor);
+                                    insertDetalleCommand.Parameters.AddWithValue("@Existencia", datosProducto.Value.Existencia);
+                                    insertDetalleCommand.Parameters.AddWithValue("@Costo", datosProducto.Value.Costo);
+                                    insertDetalleCommand.Parameters.AddWithValue("@FechaHoraReporte", fechaHoraSesion.ToString(DraftDateFormat));
+                                    insertDetalleCommand.Parameters.AddWithValue("@VentasMensuales", datosProducto.Value.VentasMensuales);
+
+                                    await insertDetalleCommand.ExecuteNonQueryAsync();
+                                }
+                            }
+
+                            await transaction.CommitAsync();
+                        }
+                        catch
+                        {
+                            await transaction.RollbackAsync();
+                            throw;
+                        }
+                    }
+                }
+
+                if (mostrarExito)
+                {
+                    await PopupNavigation.Instance.PushAsync(new DynamicPopup(
+                        "Éxito",
+                        "El reporte fue guardado correctamente.",
+                        new Dictionary<string, Action> { { "Aceptar", () => { } } }
+                    ));
+                }
+            }
+            catch (Exception ex)
+            {
+                await PopupNavigation.Instance.PushAsync(new DynamicPopup(
+                    "Error",
+                    $"No se pudo guardar el borrador del reporte: {ex.Message}",
+                    new Dictionary<string, Action> { { "Aceptar", () => { } } }
+                ));
+            }
+        }
+
+        private async Task EliminarBorradorActualEnBaseAsync(string encargadoActual = null)
+        {
+            string fechaGuardada = Preferences.Get(PrefDraftFechaHora, string.Empty);
+            string encargadoGuardado = Preferences.Get(PrefDraftEncargado, string.Empty);
+            int usuarioGuardado = Preferences.Get(PrefDraftUsuarioId, -1);
+
+            string encargadoFallback = (encargadoActual ?? string.Empty).Trim();
+
+            using (var connection = new MySqlConnection(DatabaseConnection.ConnectionString))
+            {
+                await connection.OpenAsync();
+
+                if (!string.IsNullOrWhiteSpace(fechaGuardada) && !string.IsNullOrWhiteSpace(encargadoGuardado) && usuarioGuardado != -1)
+                {
+                    string deleteQuery = @"
+                        DELETE FROM reportefechascortas
+                        WHERE FechaHoraReporte = @FechaHoraReporte
+                          AND IdUsuario = @IdUsuario
+                          AND Encargado = @Encargado
+                          AND IdSucursal = @IdSucursal;";
+
+                    using (var command = new MySqlCommand(deleteQuery, connection))
+                    {
+                        command.Parameters.AddWithValue("@FechaHoraReporte", fechaGuardada);
+                        command.Parameters.AddWithValue("@IdUsuario", usuarioGuardado);
+                        command.Parameters.AddWithValue("@Encargado", encargadoGuardado);
+                        command.Parameters.AddWithValue("@IdSucursal", idSucursal);
+                        await command.ExecuteNonQueryAsync();
+                    }
+                }
+                else if (!string.IsNullOrWhiteSpace(encargadoFallback))
+                {
+                    // Fallback: elimina el borrador del dia para el encargado actual.
+                    string deleteFallbackQuery = @"
+                        DELETE FROM reportefechascortas
+                        WHERE DATE(FechaHoraReporte) = CURDATE()
+                          AND Encargado = @Encargado
+                          AND IdSucursal = @IdSucursal
+                          AND (@IdUsuario = 0 OR IdUsuario = @IdUsuario);";
+
+                    using (var command = new MySqlCommand(deleteFallbackQuery, connection))
+                    {
+                        command.Parameters.AddWithValue("@Encargado", encargadoFallback);
+                        command.Parameters.AddWithValue("@IdSucursal", idSucursal);
+                        command.Parameters.AddWithValue("@IdUsuario", idUsuario);
+                        await command.ExecuteNonQueryAsync();
+                    }
+                }
+            }
+        }
+
+        private async Task VaciarReporteActualAsync()
+        {
+            try
+            {
+                await EliminarBorradorActualEnBaseAsync(Nombre?.Text);
+
+                detalle.Clear();
+                ActualizarLista();
+                LimpiarSesionBorrador();
+
+                Nombre.Text = string.Empty;
+                Nombre.IsReadOnly = false;
+                UPCScann.Text = string.Empty;
+                DescripcionScann.Text = string.Empty;
+                CantidadScann.Text = string.Empty;
+
+                FechaScann.Date = DateTime.Now;
+
+                UPCScann.IsReadOnly = false;
+                DescripcionScann.IsReadOnly = false;
+                Limpiar.IsVisible = false;
+
+                await PopupNavigation.Instance.PushAsync(new DynamicPopup(
+                    "Éxito",
+                    "El reporte fue vaciado y puede iniciar uno nuevo.",
+                    new Dictionary<string, Action> { { "Aceptar", () => { } } }
+                ));
+            }
+            catch (Exception ex)
+            {
+                await PopupNavigation.Instance.PushAsync(new DynamicPopup(
+                    "Error",
+                    $"No se pudo vaciar el reporte: {ex.Message}",
+                    new Dictionary<string, Action> { { "Aceptar", () => { } } }
+                ));
+            }
+        }
+
+        private async Task RecuperarBorradorAsync(string encargado, DateTime fechaInicio, DateTime fechaFin)
+        {
+            string encargadoConsulta = (encargado ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(encargadoConsulta))
+            {
+                await PopupNavigation.Instance.PushAsync(new DynamicPopup(
+                    "Error",
+                    "Debe ingresar el nombre del usuario/encargado para recuperar.",
+                    new Dictionary<string, Action> { { "Aceptar", () => { } } }
+                ));
+                return;
+            }
+
+            try
+            {
+                string fechaInicioMysql = fechaInicio.ToString("yyyy-MM-dd");
+                string fechaFinMysql = fechaFin.ToString("yyyy-MM-dd");
+                string filtroUsuario = DebeFiltrarPorUsuarioActual() ? " AND IdUsuario = @IdUsuario" : string.Empty;
+
+                DateTime? fechaSesion = null;
+
+                using (var connection = new MySqlConnection(DatabaseConnection.ConnectionString))
+                {
+                    await connection.OpenAsync();
+
+                    string querySesion = @"
+                        SELECT MAX(FechaHoraReporte)
+                        FROM reportefechascortas
+                        WHERE Encargado = @Encargado
+                          AND DATE(FechaHoraReporte) BETWEEN @FechaInicio AND @FechaFin" + filtroUsuario;
+
+                    using (var cmdSesion = new MySqlCommand(querySesion, connection))
+                    {
+                        cmdSesion.Parameters.AddWithValue("@Encargado", encargadoConsulta);
+                        cmdSesion.Parameters.AddWithValue("@FechaInicio", fechaInicioMysql);
+                        cmdSesion.Parameters.AddWithValue("@FechaFin", fechaFinMysql);
+                        if (filtroUsuario.Length > 0)
+                        {
+                            cmdSesion.Parameters.AddWithValue("@IdUsuario", idUsuario);
+                        }
+
+                        var result = await cmdSesion.ExecuteScalarAsync();
+                        if (result != null && result != DBNull.Value)
+                        {
+                            fechaSesion = Convert.ToDateTime(result);
+                        }
+                    }
+
+                    if (!fechaSesion.HasValue)
+                    {
+                        await PopupNavigation.Instance.PushAsync(new DynamicPopup(
+                            "Sin resultados",
+                            "No se encontró un reporte para continuar en el rango seleccionado.",
+                            new Dictionary<string, Action> { { "Aceptar", () => { } } }
+                        ));
+                        return;
+                    }
+
+                    string queryDetalle = @"
+                        SELECT UPC, Descripcion, Cantidad, FechaVencimiento
+                        FROM reportefechascortas
+                        WHERE Encargado = @Encargado
+                          AND FechaHoraReporte = @FechaHoraReporte" + filtroUsuario + @"
+                        ORDER BY UPC;";
+
+                    var recuperados = new List<DetalleScann>();
+                    using (var cmdDetalle = new MySqlCommand(queryDetalle, connection))
+                    {
+                        cmdDetalle.Parameters.AddWithValue("@Encargado", encargadoConsulta);
+                        cmdDetalle.Parameters.AddWithValue("@FechaHoraReporte", fechaSesion.Value.ToString(DraftDateFormat));
+                        if (filtroUsuario.Length > 0)
+                        {
+                            cmdDetalle.Parameters.AddWithValue("@IdUsuario", idUsuario);
+                        }
+
+                        using (var reader = await cmdDetalle.ExecuteReaderAsync())
+                        {
+                            while (await reader.ReadAsync())
+                            {
+                                DateTime fechaVenc = Convert.ToDateTime(reader["FechaVencimiento"]);
+                                recuperados.Add(new DetalleScann
+                                {
+                                    UPC = reader["UPC"].ToString(),
+                                    Descripcion = reader["Descripcion"].ToString(),
+                                    Cantidad = Convert.ToDouble(reader["Cantidad"]),
+                                    Vencimiento = fechaVenc.ToString("dd/MM/yyyy")
+                                });
+                            }
+                        }
+                    }
+
+                    detalle = recuperados;
+                    ActualizarLista();
+                    Nombre.Text = encargadoConsulta;
+                    GuardarSesionBorrador(fechaSesion.Value, encargadoConsulta);
+                }
+
+                await PopupNavigation.Instance.PushAsync(new DynamicPopup(
+                    "Éxito",
+                    "Reporte recuperado correctamente. Puede continuar editándolo.",
+                    new Dictionary<string, Action> { { "Aceptar", () => { } } }
+                ));
+            }
+            catch (Exception ex)
+            {
+                await PopupNavigation.Instance.PushAsync(new DynamicPopup(
+                    "Error",
+                    $"No se pudo recuperar el reporte: {ex.Message}",
+                    new Dictionary<string, Action> { { "Aceptar", () => { } } }
+                ));
+            }
         }
 
         private void VerificarConexiones()
@@ -685,6 +1125,7 @@ namespace AppBodegona.Views
                             productoExistente.Cantidad += cantidad;
                             ActualizarLista();
                             LimpiarCampos();
+                            _ = GuardarBorradorAsync();
                         }
                     },
                     { "No", () => LimpiarCampos() }
@@ -706,6 +1147,7 @@ namespace AppBodegona.Views
                             productoExistente.Vencimiento = fechaVencimiento;
                             ActualizarLista();
                             LimpiarCampos();
+                            _ = GuardarBorradorAsync();
                         }
                     },
                     { "Agregar por separado", () =>
@@ -720,6 +1162,7 @@ namespace AppBodegona.Views
 
                             ActualizarLista();
                             LimpiarCampos();
+                            _ = GuardarBorradorAsync();
                         }
                     }
                         }
@@ -740,6 +1183,7 @@ namespace AppBodegona.Views
             ActualizarLista();
             LimpiarCampos();
             ListViewDetalle.ItemSelected += ListViewDetalle_ItemSelected;
+            await GuardarBorradorAsync();
         }
 
 
@@ -815,8 +1259,6 @@ namespace AppBodegona.Views
                 }
             };
 
-            string textoCantidad = cantidadEntry.Text.Replace(",", ".");
-
             var popup = new DynamicPopup(
                 "Modificar Producto",
                 "",
@@ -824,12 +1266,14 @@ namespace AppBodegona.Views
                 {
                     { "Aceptar", () =>
                         {
-                            if (double.TryParse(textoCantidad, NumberStyles.Any, CultureInfo.InvariantCulture, out double nuevaCantidad)&& nuevaCantidad > 0)
+                            string cantidadIngresada = (cantidadEntry.Text ?? string.Empty).Replace(",", ".");
+                            if (double.TryParse(cantidadIngresada, NumberStyles.Any, CultureInfo.InvariantCulture, out double nuevaCantidad)&& nuevaCantidad > 0)
                             {
                                 producto.Cantidad = Math.Round(nuevaCantidad, 2); 
                                 producto.Vencimiento = fechaPicker.Date.ToString("dd/MM/yyyy");
 
                                 ActualizarLista();
+                                _ = GuardarBorradorAsync();
 
                                 tcs.SetResult(true);
                             }
@@ -859,6 +1303,7 @@ namespace AppBodegona.Views
                         {
                             detalle.Remove(producto);
                             ActualizarLista();
+                            _ = GuardarBorradorAsync();
                         }
                     },
                     { "No", () => { } }
@@ -866,7 +1311,7 @@ namespace AppBodegona.Views
             ));
         }
 
-        private void ContinuarDetalle_Clicked(object sender, EventArgs e)
+        private async void ContinuarDetalle_Clicked(object sender, EventArgs e)
         {
             try
             {
@@ -880,11 +1325,6 @@ namespace AppBodegona.Views
                     return;
                 }
 
-                if (idUsuario == 0)
-                {
-                    idUsuario = 0;
-                }
-
                 if (string.IsNullOrWhiteSpace(Nombre.Text))
                 {
                     PopupNavigation.Instance.PushAsync(new DynamicPopup(
@@ -895,135 +1335,32 @@ namespace AppBodegona.Views
                     return;
                 }
 
-                string encargadoActual = Nombre.Text.Trim();
+                await GuardarBorradorAsync();
 
-
-                using (var connection = new MySqlConnection(DatabaseConnection.ConnectionString))
-                {
-                    connection.Open();
-
-                    DateTime fechaActual = DateTime.Now;
-                    DateTime fechaMesAtras = fechaActual.AddMonths(-1); 
-
-                    foreach (var p in detalle)
-                    {
-                        if (string.IsNullOrWhiteSpace(p.UPC) ||
-                            string.IsNullOrWhiteSpace(p.Descripcion) ||
-                            string.IsNullOrWhiteSpace(p.Vencimiento) ||
-                            p.Cantidad <= 0)
-                        {
-                            continue;
-                        }
-
-                        DateTime fechaVencimiento;
-                        bool fechaValida = DateTime.TryParseExact(
-                            p.Vencimiento, "dd/MM/yyyy",
-                            CultureInfo.InvariantCulture, DateTimeStyles.None,
-                            out fechaVencimiento);
-
-                        if (!fechaValida)
-                        {
-                            PopupNavigation.Instance.PushAsync(new DynamicPopup(
-                                "Error",
-                                $"Formato de fecha incorrecto: {p.Vencimiento} en el producto {p.UPC}.",
-                                new Dictionary<string, Action> { { "Aceptar", () => { } } }
-                            ));
-                            continue;
-                        }
-
-                        string selectQuery = @"
-                                             SELECT IdDepartamentos, IdProveedores, Existencia, Costo 
-                                             FROM productos 
-                                             WHERE UPC = @UPC
-                                             LIMIT 1;";
-
-                        int idDepartamento = 0;
-                        int idProveedor = 0;
-                        double existencia = 0;
-                        double costo = 0;
-
-                        using (var selectCommand = new MySqlCommand(selectQuery, connection))
-                        {
-                            selectCommand.Parameters.AddWithValue("@UPC", p.UPC.Trim());
-
-                            using (var reader = selectCommand.ExecuteReader())
-                            {
-                                if (reader.Read())
-                                {
-                                    idDepartamento = reader.GetInt32("IdDepartamentos");
-                                    idProveedor = reader.GetInt32("IdProveedores");
-                                    existencia = reader.GetDouble("Existencia");
-                                    costo = reader.GetDouble("Costo");
-                                }
-                            }
-                        }
-
-                        string ventasQuery = @"
-                                            SELECT SUM(cantidad) AS VentasMensuales
-                                            FROM ventasdiarias
-                                            WHERE UPC = @UPC
-                                            AND fecha BETWEEN @FechaMesAtras AND @FechaActual;";
-
-                        double ventasMensuales = 0;
-
-                        using (var ventasCommand = new MySqlCommand(ventasQuery, connection))
-                        {
-                            ventasCommand.Parameters.AddWithValue("@UPC", p.UPC.Trim());
-                            ventasCommand.Parameters.AddWithValue("@FechaMesAtras", fechaMesAtras.ToString("yyyy-MM-dd"));
-                            ventasCommand.Parameters.AddWithValue("@FechaActual", fechaActual.ToString("yyyy-MM-dd"));
-
-                            var result = ventasCommand.ExecuteScalar();
-                            if (result != DBNull.Value && result != null)
-                            {
-                                ventasMensuales = Convert.ToDouble(result);
-                            }
-                        }
-
-                        string insertDetalleQuery = @"
-                    INSERT INTO reportefechascortas (UPC, Descripcion, Cantidad, FechaVencimiento, IdUsuario, Encargado, 
-                    IdSucursal, NombreSucursal, IdDepartamento, IdProveedor, Existencia, Costo, FechaHoraReporte, Ventas) 
-                    VALUES (@UPC, @Descripcion, @Cantidad, @FechaVencimiento, @IdUsuario, @Encargado, 
-                    @IdSucursal, @NombreSucursal, @IdDepartamento, @IdProveedor, @Existencia, @Costo, @FechaHoraReporte, @VentasMensuales);";
-
-                        using (var insertDetalleCommand = new MySqlCommand(insertDetalleQuery, connection))
-                        {
-                            insertDetalleCommand.Parameters.AddWithValue("@UPC", p.UPC.Trim());
-                            insertDetalleCommand.Parameters.AddWithValue("@Descripcion", p.Descripcion.Trim());
-                            insertDetalleCommand.Parameters.AddWithValue("@Cantidad", p.Cantidad);
-                            insertDetalleCommand.Parameters.AddWithValue("@FechaVencimiento", fechaVencimiento.ToString("yyyy-MM-dd"));
-
-                            insertDetalleCommand.Parameters.AddWithValue("@IdUsuario", idUsuario);
-                            insertDetalleCommand.Parameters.AddWithValue("@Encargado", encargadoActual);
-                            insertDetalleCommand.Parameters.AddWithValue("@IdSucursal", idSucursal);
-                            insertDetalleCommand.Parameters.AddWithValue("@NombreSucursal", nombreSucursal);
-
-                            insertDetalleCommand.Parameters.AddWithValue("@IdDepartamento", idDepartamento);
-                            insertDetalleCommand.Parameters.AddWithValue("@IdProveedor", idProveedor);
-                            insertDetalleCommand.Parameters.AddWithValue("@Existencia", existencia);
-                            insertDetalleCommand.Parameters.AddWithValue("@Costo", costo);
-                            insertDetalleCommand.Parameters.AddWithValue("@FechaHoraReporte", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
-                            insertDetalleCommand.Parameters.AddWithValue("@VentasMensuales", ventasMensuales);
-
-                            insertDetalleCommand.ExecuteNonQuery();
-                        }
-                    }
-                }
-
-                PopupNavigation.Instance.PushAsync(new DynamicPopup(
+                await PopupNavigation.Instance.PushAsync(new DynamicPopup(
                     "Éxito",
-                    "El reporte fue enviado correctamente.",
+                    "El reporte fue guardado correctamente y ya no se perderá si la app se cierra.",
                     new Dictionary<string, Action> { { "Aceptar", () => { } } }
                 ));
 
                 detalle.Clear();
                 ActualizarLista();
+                LimpiarSesionBorrador();
 
-                Nombre.Text = string.Empty;
+                if (Application.Current.MainPage is AppShell shell && !string.IsNullOrWhiteSpace(shell.Usuario))
+                {
+                    Nombre.Text = shell.Usuario;
+                    Nombre.IsReadOnly = true;
+                }
+                else
+                {
+                    Nombre.Text = string.Empty;
+                    Nombre.IsReadOnly = false;
+                }
                 UPCScann.Text = string.Empty;
                 DescripcionScann.Text = string.Empty;
                 CantidadScann.Text = string.Empty;
 
-                Nombre.IsReadOnly = false;
                 UPCScann.IsReadOnly = false;
                 DescripcionScann.IsReadOnly = false;
                 Limpiar.IsVisible = false;
@@ -1050,14 +1387,84 @@ namespace AppBodegona.Views
                 "Aceptar",
                 () =>
                 {
-                    detalle.Clear();
-                    ListViewDetalle.ItemsSource = null;
-                    ListViewDetalle.ItemsSource = detalle;
+                    _ = VaciarReporteActualAsync();
                 }
             },
             { "Cancelar", () => { } }
                 }
             ));
+        }
+
+        private async void RecuperarDetalle_Clicked(object sender, EventArgs e)
+        {
+            var tcs = new TaskCompletionSource<bool>();
+
+            var nombreEntry = new Entry
+            {
+                Placeholder = "Nombre del usuario/encargado",
+                Text = string.IsNullOrWhiteSpace(Nombre?.Text) ? NombreUsuario : Nombre.Text,
+                TextColor = Color.FromHex("#333333"),
+                PlaceholderColor = Color.FromHex("#888888"),
+                BackgroundColor = Color.FromHex("#F5F5F5")
+            };
+
+            var fechaInicioPicker = new DatePicker
+            {
+                Date = DateTime.Now,
+                Format = "dd/MM/yyyy",
+                TextColor = Color.FromHex("#333333"),
+                BackgroundColor = Color.FromHex("#F5F5F5")
+            };
+
+            var fechaFinPicker = new DatePicker
+            {
+                Date = DateTime.Now,
+                Format = "dd/MM/yyyy",
+                TextColor = Color.FromHex("#333333"),
+                BackgroundColor = Color.FromHex("#F5F5F5")
+            };
+
+            var layout = new StackLayout
+            {
+                Children =
+                {
+                    new Label { Text = "Nombre:", FontSize = 14, TextColor = Color.FromHex("#333333") },
+                    nombreEntry,
+                    new Label { Text = "Fecha inicio:", FontSize = 14, TextColor = Color.FromHex("#333333") },
+                    fechaInicioPicker,
+                    new Label { Text = "Fecha fin:", FontSize = 14, TextColor = Color.FromHex("#333333") },
+                    fechaFinPicker
+                }
+            };
+
+            await PopupNavigation.Instance.PushAsync(new DynamicPopup(
+                "Recuperar Reporte",
+                "Seleccione el rango de fechas para recuperar el último reporte.",
+                new Dictionary<string, Action>
+                {
+                    { "Recuperar", () => tcs.SetResult(true) },
+                    { "Cancelar", () => tcs.SetResult(false) }
+                },
+                layout
+            ));
+
+            bool recuperar = await tcs.Task;
+            if (!recuperar)
+            {
+                return;
+            }
+
+            if (fechaInicioPicker.Date > fechaFinPicker.Date)
+            {
+                await PopupNavigation.Instance.PushAsync(new DynamicPopup(
+                    "Error",
+                    "La fecha inicio no puede ser mayor que la fecha fin.",
+                    new Dictionary<string, Action> { { "Aceptar", () => { } } }
+                ));
+                return;
+            }
+
+            await RecuperarBorradorAsync(nombreEntry.Text, fechaInicioPicker.Date, fechaFinPicker.Date);
         }
 
         private void CargarEncargados(DateTime fechaInicio, DateTime fechaFin, int tipoReporte)
@@ -1140,6 +1547,7 @@ namespace AppBodegona.Views
             var loadingPopup = new LoadingPopup();
             string fechaInicioMysql = fechaInicio.ToString("yyyy-MM-dd");
             string fechaFinMysql = fechaFin.ToString("yyyy-MM-dd");
+            string usuarioSeleccionado = UsuariosPicker?.SelectedItem?.ToString();
 
             var reporteLista = new List<Reporte>();
 
@@ -1209,10 +1617,23 @@ namespace AppBodegona.Views
                             break;
                     }
 
+                    if (!string.IsNullOrWhiteSpace(usuarioSeleccionado) &&
+                        usuarioSeleccionado != "Ver usuarios..." &&
+                        usuarioSeleccionado != "No hay registros")
+                    {
+                        query += " AND r.Encargado = @Encargado";
+                    }
+
                     using (MySqlCommand command = new MySqlCommand(query, connection))
                     {
                         command.Parameters.AddWithValue("@FechaInicio", fechaInicioMysql);
                         command.Parameters.AddWithValue("@FechaFin", fechaFinMysql);
+                        if (!string.IsNullOrWhiteSpace(usuarioSeleccionado) &&
+                            usuarioSeleccionado != "Ver usuarios..." &&
+                            usuarioSeleccionado != "No hay registros")
+                        {
+                            command.Parameters.AddWithValue("@Encargado", usuarioSeleccionado.Trim());
+                        }
 
                         using (MySqlDataReader reader = command.ExecuteReader())
                         {
@@ -1536,6 +1957,17 @@ namespace AppBodegona.Views
         {
             int tipoReporte = TipoReportePicker.SelectedIndex + 1;
             ExportarReporte(tipoReporte);
+        }
+
+        private void LimpiarReporteNiv5_Clicked(object sender, EventArgs e)
+        {
+            TipoReportePicker.SelectedIndex = -1;
+            UsuariosPicker.ItemsSource = null;
+            UsuariosPicker.SelectedItem = null;
+            FechaInicio.Date = DateTime.Now;
+            FechaFin.Date = DateTime.Now;
+            ListViewReporte.ItemsSource = new List<Reporte>();
+            ListViewReporte.SelectedItem = null;
         }
     }
 }

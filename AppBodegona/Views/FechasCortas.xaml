@@ -265,6 +265,11 @@
 
 
                     <Grid VerticalOptions="EndAndExpand" Margin="0,0,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
                         <Frame x:Name="ContinuarDetalle" 
                                HasShadow="False"
                                BackgroundColor="#00A6BD"
@@ -310,6 +315,29 @@
                             </StackLayout>
                             <Frame.GestureRecognizers>
                                 <TapGestureRecognizer Tapped="VaciarDetalle_Clicked"/>
+                            </Frame.GestureRecognizers>
+                        </Frame>
+
+                        <Frame x:Name="RecuperarDetalle"
+                               HasShadow="False"
+                               BackgroundColor="#3AADA9"
+                               Padding="1"
+                               CornerRadius="8"
+                               Grid.Column="2">
+                            <StackLayout Orientation="Horizontal"
+                                            HorizontalOptions="Center"
+                                            VerticalOptions="Center">
+                                <Label Text="Recuperar"
+                                      FontSize="16"
+                                      TextColor="White"
+                                      VerticalTextAlignment="Center"/>
+                                <Label Text="&#xe8b6;"
+                                      FontFamily="MaterialIcons-Regular"
+                                      FontSize="25"
+                                      TextColor="White"/>
+                            </StackLayout>
+                            <Frame.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="RecuperarDetalle_Clicked"/>
                             </Frame.GestureRecognizers>
                         </Frame>
                     </Grid>
@@ -541,6 +569,11 @@
 
                     <StackLayout>
                         <Grid Margin="0,0,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
                             <Frame HasShadow="False"
                                    BackgroundColor="#00A6BD"
                                    Padding="10"
@@ -588,6 +621,32 @@
                                 </StackLayout>
                                 <Frame.GestureRecognizers>
                                     <TapGestureRecognizer Tapped="Compartir_Clicked"/>
+                                </Frame.GestureRecognizers>
+                            </Frame>
+
+                            <Frame x:Name="LimpiarReporteNiv5"
+                                   HasShadow="False"
+                                   BackgroundColor="#DF3068"
+                                   Padding="10"
+                                   CornerRadius="8"
+                                   Margin="0,0,0,0"
+                                   Grid.Column="2">
+
+                                <StackLayout Orientation="Horizontal"
+                                     HorizontalOptions="Center"
+                                     VerticalOptions="Center"
+                                     Spacing="10">
+                                    <Label Text="Limpiar Vista"
+                                   FontSize="16"
+                                   TextColor="White"
+                                   VerticalTextAlignment="Center"/>
+                                    <Label Text="&#xe872;"
+                                   FontFamily="MaterialIcons-Regular"
+                                   FontSize="30"
+                                   TextColor="White"/>
+                                </StackLayout>
+                                <Frame.GestureRecognizers>
+                                    <TapGestureRecognizer Tapped="LimpiarReporteNiv5_Clicked"/>
                                 </Frame.GestureRecognizers>
                             </Frame>
                         </Grid>
