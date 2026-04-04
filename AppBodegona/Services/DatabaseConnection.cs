@@ -12,6 +12,20 @@ namespace AppBodegona.Services
         public static string ConnectionNexus { get; private set; }
         public static string DeviceName { get; private set; }
 
+        // Si esta en true, se ignoran configuraciones por scanner/preferences.
+        public static bool ForceLocalConnections { get; set; } = false;
+
+        //// Configuracion local compartida para todas las conexiones
+        //private static readonly string LocalServer = "192.168.0.3";
+        //private static readonly string LocalPort = "3306";
+        //private static readonly string LocalUsername = "root";
+        //private static readonly string LocalPassword = "123456";
+
+        //// Bases por modulo
+        //private static readonly string LocalDatabaseSucursal = "superpos";
+        //private static readonly string LocalDatabaseCentral = "facturas_compras";
+        //private static readonly string LocalDatabaseNexus = "dbsucursales";
+
         static DatabaseConnection()
         {
             InitializeConnectionString();
@@ -41,6 +55,14 @@ namespace AppBodegona.Services
 
         public static void InitializeConnectionString()
         {
+            // Configuracion local activa (deshabilitada)
+            //var server = LocalServer;
+            //var port = LocalPort;
+            //var database = LocalDatabaseSucursal;
+            //var username = LocalUsername;
+            //var password = LocalPassword;
+
+            // Configuracion por preferencias/productiva (deshabilitada temporalmente)
             //var server = "172.30.67.25";
             //var username = "reportes";
             //var password = "bode.24451988";
@@ -69,6 +91,14 @@ namespace AppBodegona.Services
 
         public static void InitializeConnectionCentral()
         {
+            // Configuracion local activa (deshabilitada)
+            //var server = LocalServer;
+            //var username = LocalUsername;
+            //var password = LocalPassword;
+            //var port = LocalPort;
+            //var database = LocalDatabaseCentral;
+
+            // Configuracion productiva (deshabilitada temporalmente)
             //var server = Preferences.Get("ServerAddressCentral", string.Empty);
             //var port = Preferences.Get("PortNumberCentral", string.Empty);
             //var database = Preferences.Get("DatabaseNameCentral", string.Empty);
@@ -94,6 +124,14 @@ namespace AppBodegona.Services
 
         public static void InitializeConnectionNexus()
         {
+            // Configuracion local activa (deshabilitada)
+            //var server = LocalServer;
+            //var username = LocalUsername;
+            //var password = LocalPassword;
+            //var port = LocalPort;
+            //var database = LocalDatabaseNexus;
+
+            // Configuracion productiva (deshabilitada temporalmente)
             //var server = Preferences.Get("ServerAddressNexus", string.Empty);
             //var port = Preferences.Get("PortNumberNexus", string.Empty);
             //var database = Preferences.Get("DatabaseNameNexus", string.Empty);
@@ -162,6 +200,13 @@ namespace AppBodegona.Services
 
         public static void UpdateConnectionString(string server, string port, string database, string username, string password)
         {
+            if (ForceLocalConnections)
+            {
+                // Mantener la conexion local fija durante pruebas.
+                InitializeConnectionString();
+                return;
+            }
+
             ConnectionString = $"Server={server};Port={port};Database={database};Uid={username};Pwd={password};";
             ConnectedServer = server;
         }
