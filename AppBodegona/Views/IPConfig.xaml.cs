@@ -131,7 +131,8 @@ namespace AppBodegona.Views
 
                     // Ejecutar TipoSucursal
                     await TipoSucursal();
-                    //await DetalleSucursal();
+                    // Actualiza el nombre real desde NEXUS (puede diferir del nombre en la BD local)
+                    await ActualizarNombreSucursalDesdeNexus();
                 }
                 else
                 {
@@ -261,6 +262,42 @@ namespace AppBodegona.Views
                         }
                     }
                 }
+            }
+        }
+
+        // Obtiene el nombre de la sucursal desde NEXUS y lo guarda en Preferences.
+        // Si NEXUS no está disponible, falla silenciosamente (se conserva el nombre del TipoSucursal).
+        private async Task ActualizarNombreSucursalDesdeNexus()
+        {
+            if (string.IsNullOrEmpty(DatabaseConnection.ConnectionNexus))
+                return;
+
+            try
+            {
+                string query = "SELECT NombreSucursal FROM sucursales WHERE serverr = @Server AND TipoSucursal = 1 LIMIT 1";
+
+                using (var connection = new MySqlConnection(DatabaseConnection.ConnectionNexus))
+                {
+                    await connection.OpenAsync();
+                    using (var command = new MySqlCommand(query, connection))
+                    {
+                        command.Parameters.AddWithValue("@Server", ServerAddress);
+                        var result = await command.ExecuteScalarAsync();
+                        if (result != null && result != DBNull.Value)
+                        {
+                            string nombreSucursal = result.ToString();
+                            if (!string.IsNullOrEmpty(nombreSucursal))
+                            {
+                                Preferences.Set("NombreSucursal", nombreSucursal);
+                                Preferences.Set("NOMBRESUCURSALGLOBAL", nombreSucursal);
+                            }
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                // Si NEXUS no está disponible se conserva el nombre guardado por TipoSucursal
             }
         }
 
